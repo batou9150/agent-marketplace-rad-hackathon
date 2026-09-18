@@ -36,6 +36,7 @@ uv run ruff format .
 ## Documentation
 
 - [Stratégie Marketing & Commercialisation GCP Marketplace](docs/strategie-marketing-gcp-marketplace.md)
+- [Kit de Communication & Go-To-Market](docs/communication/)
 - [Format du pack de règles](docs/rule-pack-format.md)
 - [Décisions d'architecture (ADR)](docs/adr/)
 - [Plan d'implémentation](plan-implementation-agent-vibe-coding.md)
