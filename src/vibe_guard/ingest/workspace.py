@@ -229,7 +229,14 @@ class EphemeralWorkspace:
 
         dest = self.path / "src"
         try:
-            shutil.copytree(src, dest, symlinks=False)
+            shutil.copytree(
+                src,
+                dest,
+                symlinks=False,
+                ignore=shutil.ignore_patterns(
+                    ".git", ".venv", "venv", "__pycache__", ".pytest_cache", "node_modules", ".tox"
+                ),
+            )
         except Exception as exc:
             raise IngestionError(
                 f"Failed to copy directory into ephemeral workspace: {exc}"
