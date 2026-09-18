@@ -1,0 +1,238 @@
+{
+  "title": "Offre SFEIR — Vibe Coding Security Assessment",
+  "filename": "SFEIR_Vibe_Coding_Security_Assessment.pptx",
+  "accent_family": "cuivre",
+  "register": "pitch",
+  "slides": [
+    {
+      "layout": "cover",
+      "eyebrow": "SFEIR · OFFRE PARTENAIRE · SEPTEMBRE 2026",
+      "title": "Sécuriser et industrialiser le Vibe Coding",
+      "subtitle": "Vibe Coding Security Assessment · SFEIR & Google Cloud"
+    },
+    {
+      "layout": "hero",
+      "eyebrow": "CONVICTION",
+      "statement": "Créer à la vitesse de l'IA, déployer avec l'exigence du Cloud d'entreprise",
+      "support": "Le vibe coding libère l'innovation métier. Mais sans gouvernance ni conformité automatisée, 9 prototypes sur 10 restent bloqués aux portes de la production.",
+      "cta": "DIAGNOSTIC EN 48H →"
+    },
+    {
+      "layout": "content",
+      "family": "rose",
+      "eyebrow": "— 01 · LE RISQUE DU SHADOW AI",
+      "title": "L'angle mort des applications générées par IA",
+      "lede": "La vitesse permise par Cursor, Lovable ou Bolt se heurte aux politiques de sécurité d'entreprise.",
+      "columns": [
+        {
+          "heading": "Vélocité Métier",
+          "bullets": [
+            "**Adoption massive des outils GenAI** par les développeurs et les équipes produit",
+            "**Des prototypes fonctionnels créés en quelques heures** sans solliciter l'ingénierie centrale",
+            "Frustration aiguë face aux délais traditionnels d'homologation de sécurité"
+          ]
+        },
+        {
+          "heading": "Vulnérabilités Critiques",
+          "bullets": [
+            "**Clés d'API en clair** dans le code source ou fichiers d'environnement versionnés",
+            "**Absence d'authentification managée** et conteneurs root exposés sur Internet",
+            "**Appels LLM non bridés** sans passerelle gouvernée, risque d'injection et de surcoûts"
+          ]
+        }
+      ]
+    },
+    {
+      "layout": "timeline",
+      "family": "terre",
+      "eyebrow": "— 02 · DÉMARCHE EXPRESS",
+      "title": "Un diagnostic complet en 48 heures",
+      "phases": [
+        {
+          "name": "Jour 1 : Cadrage",
+          "duration": "1 jour",
+          "bullets": [
+            "Cartographie des applications et prototypes IA cibles",
+            "Déploiement éphémère de Vibe Guard dans le projet GCP client",
+            "Validation des accès dépôts de code en isolation stricte"
+          ]
+        },
+        {
+          "name": "Jour 2 : Scan & Analyse",
+          "duration": "1 jour",
+          "bullets": [
+            "Analyse statique déterministe Semgrep & Gitleaks (Zero-Egress)",
+            "Audit des 4 familles : AUTH, SECRETS, LLM-GOV, NET-ISO",
+            "Enrichissement par Gemini 3.8 Flash pour les remédiations GCP"
+          ]
+        },
+        {
+          "name": "Jour 3 : Restitution",
+          "duration": "1 jour",
+          "bullets": [
+            "Restitution exécutive pour le CISO, le CTO et les équipes",
+            "Remise des scripts Terraform et spécifications Cloud Run",
+            "Feuille de route d'industrialisation continue et support"
+          ]
+        }
+      ]
+    },
+    {
+      "layout": "content",
+      "family": "emeraude",
+      "eyebrow": "— 03 · LIVRABLES CONCRETS",
+      "title": "Des livrables actionnables, pas un audit théorique",
+      "lede": "Chaque anomalie détectée est accompagnée de sa solution d'architecture prête à être déployée.",
+      "columns": [
+        {
+          "heading": "Dashboard Exécutif",
+          "bullets": [
+            "**Matrice des risques priorisés** par niveau de sévérité (P0 à P3)",
+            "Score d'exposition et d'auditabilité pour les comités de sécurité",
+            "Cartographie consolidée du Shadow AI au sein de l'organisation"
+          ]
+        },
+        {
+          "heading": "Pack Remédiation GCP",
+          "bullets": [
+            "**Code Terraform prêt à l'emploi** pour les ressources cibles",
+            "Spécifications **Cloud Run sécurisées** avec non-root et isolation",
+            "Intégration automatique de **Secret Manager** et **Identity-Aware Proxy**"
+          ]
+        },
+        {
+          "heading": "Roadmap Industrielle",
+          "bullets": [
+            "Plan d'intégration continue dans vos pipelines CI/CD Cloud Build / GitLab",
+            "Déploiement de Vibe Guard dans votre **Gemini Enterprise App**",
+            "Recommandations de gouvernance pour les porteurs d'initiatives IA"
+          ]
+        }
+      ]
+    },
+    {
+      "layout": "stats",
+      "background": "dark",
+      "family": "indigo",
+      "eyebrow": "IMPACT MESURABLE",
+      "stats": [
+        {
+          "value": "48h",
+          "label": "DÉLAI DE RESTITUTION",
+          "context": "Du cadrage initial à la remise des scripts de remédiation GCP"
+        },
+        {
+          "value": "100%",
+          "label": "ZERO-EGRESS & SOUVERAIN",
+          "context": "Exécution intégrale au sein du tenant Google Cloud privé du client"
+        },
+        {
+          "value": "18h",
+          "label": "ÉCONOMIE D'INGÉNIERIE",
+          "context": "Gagnées en moyenne par prototype audité et sécurisé"
+        }
+      ]
+    },
+    {
+      "layout": "content",
+      "family": "cuivre",
+      "eyebrow": "— 04 · ATOUTS SFEIR & GOOGLE CLOUD",
+      "title": "Pourquoi cette offre débloque immédiatement les projets",
+      "columns": [
+        {
+          "heading": "Budget Zéro Friction",
+          "bullets": [
+            "**Financement 100 % déductible** de vos engagements **EDP Google Cloud**",
+            "Achat simplifié via **Private Offer (CPPO)** sur GCP Marketplace",
+            "Aucune ouverture de compte fournisseur ni ligne budgétaire neuve"
+          ]
+        },
+        {
+          "heading": "Souveraineté & Conformité",
+          "bullets": [
+            "**Aucun code ne quitte votre VPC** : conteneurs Cloud Run privés",
+            "Support complet de **VPC Service Controls** et des clés **CMEK**",
+            "Garantie stricte de non-entraînement des modèles sur votre code"
+          ]
+        },
+        {
+          "heading": "Canal Gemini Enterprise",
+          "bullets": [
+            "Utilisation fluide dans la **Gemini Enterprise App** déployée chez vous",
+            "Audit en langage naturel accessible aux Citizen Developers",
+            "SFEIR : Partenaire Premier et référence d'intégration GenAI"
+          ]
+        }
+      ]
+    },
+    {
+      "layout": "table",
+      "family": "ocre",
+      "eyebrow": "— 05 · MODALITÉS COMMERCIALES",
+      "title": "Une trajectoire d'industrialisation claire",
+      "table": {
+        "columns": [
+          "Formule",
+          "Périmètre",
+          "Durée",
+          "Facturation",
+          "Objectif"
+        ],
+        "rows": [
+          [
+            "Assessment Flash",
+            "Audit de 3 à 5 prototypes IA, rapport CISO + scripts GCP",
+            "2 à 3 jours",
+            "3 000 € à 4 500 € HT",
+            "Déblocage immédiat de la production"
+          ],
+          [
+            "Vibe Guard Enterprise (CPPO)",
+            "Scans illimités, règles custom, intégration Gemini App, SLA SFEIR",
+            "Annuel",
+            "25 k€ à 75 k€ / an (EDP)",
+            "Gouvernance continue du vibe coding"
+          ],
+          [
+            "Build & Accompagnement",
+            "Intégration CI/CD, migration GCP, formation des équipes SecOps",
+            "Sur-mesure",
+            "Prestation SFEIR (EDP)",
+            "Passage à l'échelle de la Software Factory"
+          ]
+        ]
+      },
+      "caption": "Toutes les formules sont éligibles au tirage sur engagements EDP (Enterprise Discount Program) via Google Cloud Marketplace."
+    },
+    {
+      "layout": "content",
+      "family": "canard",
+      "eyebrow": "— 06 · SIGNAUX D'ACHAT & DÉCLENCHEURS",
+      "title": "Quand proposer le Vibe Coding Assessment",
+      "columns": [
+        {
+          "heading": "Moments Charnières",
+          "bullets": [
+            "**Organisation d'un hackathon interne** ou incubation de POCs IA métier",
+            "**Blocage sécurité (CISO/RSSI)** sur un prototype stratégique à fort enjeu",
+            "Découverte d'applications non gouvernées (*Shadow AI*) par les SRE"
+          ]
+        },
+        {
+          "heading": "Leviers Budgétaires",
+          "bullets": [
+            "**Crédits d'engagements Google Cloud (EDP)** à consommer avant clôture",
+            "Recherche d'outils d'audit automatisés sans alourdir la charge des équipes",
+            "Projet de déploiement d'une **Gemini Enterprise App** souveraine"
+          ]
+        }
+      ]
+    },
+    {
+      "layout": "closing",
+      "message": "Industrialisons vos applications IA dès maintenant",
+      "contact": "vibe-guard-team@sfeir.com · sfeir.com",
+      "cta": "PLANIFIER UN ASSESSMENT →"
+    }
+  ]
+}

@@ -37,5 +37,7 @@ htmlcov/
 .idea/
 .vscode/
 
-# Temporary scans
+# Temporary scans & agent caches
 tmp/
+.adk/
+**/.adk/
