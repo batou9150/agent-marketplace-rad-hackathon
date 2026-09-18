@@ -40,7 +40,7 @@ def run_scan(args: argparse.Namespace) -> int:
     """Execute vibe-guard scan subcommand."""
     source: str = args.source
     rules_dir = Path(args.rules) if args.rules else get_default_rules_dir()
-    caller_id = args.caller_id or "cli_user"
+    caller_id = args.caller_id or "anonymous"
     no_llm: bool = args.no_llm
     scan_id = f"scan-{uuid.uuid4().hex[:8]}"
     start_time = time.monotonic()

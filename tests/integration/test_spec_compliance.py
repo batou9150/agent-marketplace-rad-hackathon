@@ -465,3 +465,89 @@ def test_spec_rep_1_and_rep_4_schema_documentation_and_markdown_parity(
         assert finding.remediation.summary in md_str
         for step in finding.remediation.steps:
             assert step in md_str
+
+
+def test_spec_aud_4_caller_id_resolution_deployed_and_local(monkeypatch, tmp_path):
+    """SPEC-AUD-4: caller_id must originate from IAM/IAP identity in deployment,
+    and anonymous in local.
+    """
+    from vibe_guard.cli import main
+    from vibe_guard_a2ui.agent import _retrieve_report, scan_repository
+
+    repo_root = Path(__file__).parents[2]
+    clean_target = repo_root / "fixtures" / "conform" / "clean_python_app"
+
+    # 1. Local execution without explicit caller_id -> "anonymous"
+    monkeypatch.delenv("VIBE_GUARD_ENV", raising=False)
+    local_res = scan_repository(source=str(clean_target), no_llm=True)
+    assert "Vibe Guard Security Audit Completed" in local_res
+    local_report = _retrieve_report(None)
+    assert local_report is not None
+    assert local_report.metadata.caller_id == "anonymous"
+
+    # 2. Local CLI scan without --caller-id -> "anonymous"
+    out_json = tmp_path / "cli_report.json"
+    cli_code = main([
+        "scan",
+        str(clean_target),
+        "--rules",
+        str(repo_root / "rules"),
+        "--no-llm",
+        "--format",
+        "json",
+        "--out",
+        str(out_json),
+    ])
+    assert cli_code == 0
+    saved_data = json.loads(out_json.read_text(encoding="utf-8"))
+    assert saved_data["metadata"]["caller_id"] == "anonymous"
+
+    # 3. Deployed mode (production) without authenticated caller -> rejected
+    monkeypatch.setenv("VIBE_GUARD_ENV", "production")
+    monkeypatch.delenv("IAP_CALLER_IDENTITY", raising=False)
+    monkeypatch.delenv("AUTHENTICATED_USER_EMAIL", raising=False)
+    monkeypatch.delenv("CALLER_ID", raising=False)
+    unauth_res = scan_repository(source=f"file://{clean_target}.tar.gz", no_llm=True)
+    assert "Error 401/403: Unauthenticated caller" in unauth_res
+
+    # 4. Deployed mode with authenticated IAP/IAM identity
+    monkeypatch.setenv("IAP_CALLER_IDENTITY", "alice@enterprise.example.com")
+    sample_zip = tmp_path / "app.zip"
+    with zipfile.ZipFile(sample_zip, "w") as zf:
+        zf.writestr("app.py", "print('hello')\n")
+
+    auth_res = scan_repository(source=str(sample_zip), no_llm=True)
+    assert "Vibe Guard Security Audit Completed" in auth_res
+    deployed_report = _retrieve_report(None)
+    assert deployed_report is not None
+    assert deployed_report.metadata.caller_id == "alice@enterprise.example.com"
+
+
+def test_spec_ops_6_no_fabricated_metrics():
+    """SPEC-OPS-6 & C7: No unmeasured benchmark claims or fabricated metrics in repo."""
+    repo_root = Path(__file__).parents[2]
+    readme = (repo_root / "README.md").read_text(encoding="utf-8")
+    agent_card = (
+        repo_root / "vibe_guard_a2ui" / ".well-known" / "agent.json"
+    ).read_text(encoding="utf-8")
+
+    forbidden_patterns = [
+        "99.",
+        "98.",
+        "100x",
+        "10x",
+        "5x faster",
+        "state of the art",
+        "benchmark score",
+        "surpasses human",
+        "hallucination free",
+    ]
+    for pattern in forbidden_patterns:
+        assert pattern not in readme.lower(), (
+            f"Unmeasured marketing claim '{pattern}' found in README.md"
+        )
+        assert pattern not in agent_card.lower(), (
+            f"Unmeasured marketing claim '{pattern}' found in agent.json"
+        )
+
+

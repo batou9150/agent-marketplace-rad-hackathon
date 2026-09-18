@@ -130,15 +130,46 @@ def scan_repository(
             f"Direct local paths are prohibited. Received: {source}"
         )
 
-    # SPEC-AGT-5: Require authenticated caller in deployed mode
-    caller_id = None
-    if tool_context and hasattr(tool_context, "user_id") and tool_context.user_id:
-        caller_id = tool_context.user_id
-    elif not is_deployed:
-        caller_id = "gemini_enterprise_user"
+def resolve_caller_id(tool_context: Any = None, is_deployed: bool = False) -> str:
+    """Resolve caller identity (SPEC-AUD-4).
 
-    unauth = ("anonymous", "unauthenticated", "none")
-    if is_deployed and (not caller_id or caller_id.lower() in unauth):
+    In deployed mode, caller_id MUST come from authenticated IAM/IAP identity
+    (tool_context.user_id, headers, or IAP environment variables).
+    In local mode, defaults to 'anonymous'.
+    """
+    caller_id = None
+    if tool_context:
+        if hasattr(tool_context, "user_id") and tool_context.user_id:
+            caller_id = tool_context.user_id
+        elif hasattr(tool_context, "headers") and isinstance(tool_context.headers, dict):
+            headers = tool_context.headers
+            caller_id = (
+                headers.get("x-goog-authenticated-user-email")
+                or headers.get("X-Goog-Authenticated-User-Email")
+                or headers.get("x-goog-iap-jwt-assertion")
+            )
+
+    if not caller_id and is_deployed:
+        caller_id = (
+            os.environ.get("IAP_CALLER_IDENTITY")
+            or os.environ.get("AUTHENTICATED_USER_EMAIL")
+            or os.environ.get("CALLER_ID")
+        )
+
+    if caller_id and caller_id.startswith("accounts.google.com:"):
+        caller_id = caller_id.split("accounts.google.com:", 1)[1]
+
+    if not caller_id:
+        return "" if is_deployed else "anonymous"
+
+    return caller_id.strip()
+
+
+    # SPEC-AGT-5 & SPEC-AUD-4: Caller ID from IAM/IAP in deployed mode, anonymous in local
+    caller_id = resolve_caller_id(tool_context=tool_context, is_deployed=is_deployed)
+
+    unauth = ("anonymous", "unauthenticated", "none", "")
+    if is_deployed and caller_id.lower() in unauth:
         return (
             "Error 401/403: Unauthenticated caller. "
             "Scans cannot be executed without an authenticated caller identity."
