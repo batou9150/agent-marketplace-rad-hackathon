@@ -26,6 +26,7 @@ class Finding:
     line_number: int
     snippet: Snippet | None = None
     is_tool_error: bool = False
+    detected_secret: str | None = None
     remediation_summary: str | None = None
     remediation_gcp_service: str | None = None
     remediation_steps: list[str] = field(default_factory=list)
