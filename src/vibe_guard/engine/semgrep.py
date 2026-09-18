@@ -18,16 +18,6 @@ from vibe_guard.rules.loader import RulePack
 
 logger = logging.getLogger(__name__)
 
-# Environment variables semgrep-core interprets as paths; an empty value in any of
-# them is fatal, so they are dropped rather than forwarded (SPEC-ENG-7).
-_SEMGREP_PATH_ENV_VARS = (
-    "HOME",
-    "XDG_CONFIG_HOME",
-    "XDG_CACHE_HOME",
-    "SEMGREP_SETTINGS_FILE",
-    "SEMGREP_VERSION_CACHE_PATH",
-)
-
 
 def _find_semgrep_binary() -> str:
     """Find the semgrep executable in env, virtualenv or PATH (SPEC-ENG-7)."""
@@ -56,13 +46,20 @@ def os_is_executable(path: Path) -> bool:
     return os.access(path, os.X_OK)
 
 
-def _tool_error(message: str) -> list[Finding]:
+def _tool_error(message: str, cmd: list[str] | None = None) -> list[Finding]:
     """Record a Semgrep failure as a finding and make it visible in the logs.
 
     A tool error is excluded from the finding counts, so without this the scan
-    reports success while half the rule pack never ran.
+    reports success while half the rule pack never ran. The command and working
+    directory travel with it: Semgrep resolves paths against both, and its path
+    errors name neither.
     """
-    logger.error("Semgrep execution failed: %s", message)
+    logger.error(
+        "Semgrep execution failed (cwd=%s, cmd=%s): %s",
+        os.getcwd(),
+        cmd if cmd is None else " ".join(repr(arg) for arg in cmd),
+        message,
+    )
     return [Finding.create_tool_error("semgrep", message)]
 
 
@@ -84,6 +81,8 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
         yaml.dump({"rules": semgrep_rules}, tmp_config)
         config_path = Path(tmp_config.name)
 
+    cmd: list[str] = []
+
     try:
         cmd = [
             semgrep_bin,
@@ -101,14 +100,17 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
 
         env = dict(os.environ)
 
-        # semgrep-core reads these as filesystem paths and aborts the whole scan
-        # with Invalid_argument("": invalid path) when one is present but empty,
-        # which is how a managed runtime can hand them over. Unset beats empty.
-        dropped = [var for var in _SEMGREP_PATH_ENV_VARS if var in env and not env[var]]
+        # semgrep-core reads several variables as filesystem paths and aborts the
+        # whole scan with Invalid_argument("": invalid path) when one is present
+        # but empty, which is how a managed runtime can hand them over. Which
+        # variables it consults is not documented, and an empty value carries no
+        # meaning for a subprocess, so every empty entry is dropped: unset is safe
+        # where empty is fatal.
+        dropped = sorted(var for var, value in env.items() if not value)
         for var in dropped:
             del env[var]
         if dropped:
-            logger.info("Dropped empty Semgrep path variables: %s", ", ".join(dropped))
+            logger.info("Dropped empty environment variables for Semgrep: %s", ", ".join(dropped))
 
         env["HOME"] = str(config_path.parent)
         env["SEMGREP_SETTINGS_FILE"] = str(config_path.parent / ".semgrep_settings.yml")
@@ -127,7 +129,7 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
         # Semgrep returns 0 on clean, 1 on findings detected
         if result.returncode not in (0, 1):
             err_msg = result.stderr.strip() or f"Semgrep exited with code {result.returncode}"
-            return _tool_error(err_msg)
+            return _tool_error(err_msg, cmd)
 
         output_data: dict[str, Any] = json.loads(result.stdout)
         findings: list[Finding] = []
@@ -172,10 +174,10 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
 
     except subprocess.TimeoutExpired:
         msg = f"Semgrep scan timed out after {timeout} seconds"
-        return _tool_error(msg)
+        return _tool_error(msg, cmd)
     except json.JSONDecodeError as exc:
-        return _tool_error(f"Failed to parse Semgrep JSON output: {exc}")
+        return _tool_error(f"Failed to parse Semgrep JSON output: {exc}", cmd)
     except Exception as exc:
-        return _tool_error(f"Unexpected error executing Semgrep: {exc}")
+        return _tool_error(f"Unexpected error executing Semgrep: {exc}", cmd)
     finally:
         config_path.unlink(missing_ok=True)
