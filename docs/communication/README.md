@@ -35,6 +35,8 @@ graph TD
 | Fichier | Cible / Canal | Objectif Principal |
 |---|---|---|
 | [**`note-comex-sfeir-vibe-guard.md`**](note-comex-sfeir-vibe-guard.md) | COMEX SFEIR (Direction Générale, Alliances) | Note stratégique d'arbitrage : modèle économique, projection financière à 12 mois (906 k€ CA), synergies Google Cloud et décisions soumises au vote. |
+| [**`SFEIR_Note_COMEX_Vibe_Guard.pptx`**](SFEIR_Note_COMEX_Vibe_Guard.pptx) | COMEX SFEIR (séance d'arbitrage) | Support de présentation 18 slides à la charte SFEIR (The Sharp Artisan v2026.1) reprenant la note stratégique : marché, actif, modèle économique, exécution et les trois décisions soumises au vote. |
+| [**`build_note_comex_deck.js`**](build_note_comex_deck.js) | Consultants & Presales SFEIR | Script de génération du deck COMEX (pptxgenjs) : tokens de marque, helpers de diagrammes et contenu des 18 slides. `node build_note_comex_deck.js SFEIR_Note_COMEX_Vibe_Guard.pptx`. |
 | [**`business-value-pitch-roi.md`**](business-value-pitch-roi.md) | CISO, CTO, Head of Platform, DSI | Démontrer le coût de l'inaction (Shadow AI), la réduction du cycle de mise en production de 85 %, et un modèle de ROI à 3 ans (+289 %). |
 | [**`marketplace-listing-copy.md`**](marketplace-listing-copy.md) | Google Cloud Marketplace / Acheteurs GCP | Fiche produit officielle pour le Google Cloud Producer Portal : description courte/longue, compatibilité technique, modèle hybride (1,99 $ / scan + CPPO). |
 | [**`sfeir-assessment-one-pager.md`**](sfeir-assessment-one-pager.md) | Sales, CTO, ED (Engineering Directors) & Consultants SFEIR | Support de vente 1-page pour déclencher des missions d'audit d'industrialisation (2-3 jours) chez les clients grands comptes et closer des offres privées CPPO. |
