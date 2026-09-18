@@ -64,6 +64,18 @@ def test_cloudrun_yaml_manifest() -> None:
     assert "/tmp" in volume_mounts.values()
 
 
+def test_deploy_cloudrun_script_security_flags() -> None:
+    """SPEC-OPS-3: deploy_cloudrun.sh enforces private IAM/IAP and minimal SA."""
+    script_path = PROJECT_ROOT / "deploy" / "deploy_cloudrun.sh"
+    assert script_path.is_file(), "deploy/deploy_cloudrun.sh must exist"
+
+    content = script_path.read_text(encoding="utf-8")
+    assert "--no-allow-unauthenticated" in content
+    assert "--ingress=internal-and-cloud-load-balancing" in content
+    assert "--service-account" in content
+    assert "vibe-guard-agent-sa@" in content
+
+
 
 def test_agent_engine_dry_run() -> None:
     deployer_path = PROJECT_ROOT / "vibe_guard_a2ui" / "deploy_agent_engine.py"

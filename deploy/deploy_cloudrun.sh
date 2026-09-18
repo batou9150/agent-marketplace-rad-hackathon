@@ -56,7 +56,9 @@ gcloud run deploy "${SERVICE_NAME}" \
   --region="${REGION}" \
   --image="${IMAGE_URI}" \
   --platform=managed \
-  --allow-unauthenticated \
+  --no-allow-unauthenticated \
+  --ingress=internal-and-cloud-load-balancing \
+  --service-account="vibe-guard-agent-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
   --port=8080 \
   --cpu=2 \
   --memory=2Gi \

@@ -3,6 +3,7 @@
 Verifies SPEC-AGT-1, SPEC-AGT-2, and SPEC-AGT-3.
 """
 
+import json
 from pathlib import Path
 
 from vibe_guard_a2ui.a2ui_presentation import A2UI_DELIMITER
@@ -136,6 +137,7 @@ def test_spec_aud_4_caller_id_resolution_deployed_and_local(monkeypatch):
     """SPEC-AUD-4: caller_id must originate from authenticated IAM/IAP identity
     in deployment, and defaults to 'anonymous' in local mode.
     """
+
     class MockContextWithUser:
         user_id = "user@example.com"
 
@@ -198,6 +200,5 @@ def test_spec_aud_4_deployed_scan_records_authenticated_caller_identity(monkeypa
     assert audit_file.is_file()
     lines = audit_file.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) >= 1
-    import json
     record = json.loads(lines[-1])
     assert record["caller_id"] == "audited-secops@company.com"
