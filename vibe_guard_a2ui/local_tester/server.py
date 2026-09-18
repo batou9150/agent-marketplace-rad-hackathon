@@ -5,14 +5,14 @@ Provides JSON-RPC 2.0 A2A protocol emulation, schema validation, and web mock cl
 
 import json
 import logging
-import os
 import sys
 from pathlib import Path
+from typing import Any
 
+import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-import uvicorn
 
 # Setup paths to import agent and core packages
 current_dir = Path(__file__).resolve().parent
@@ -20,6 +20,7 @@ agent_dir = current_dir.parent
 project_dir = agent_dir.parent
 sys.path.extend([str(agent_dir), str(project_dir), str(project_dir / "src")])
 
+# ruff: noqa: E402
 import agent
 from agent_executor import extract_action_context, split_a2ui_payload
 from google.adk import runners
@@ -171,11 +172,15 @@ async def handle_jsonrpc(request: Request):
             async for event in runner.run_async(
                 user_id="local_user", session_id=session.id, new_message=content
             ):
-                if event.is_final_response():
-                    if event.content and event.content.parts and event.content.parts[0].text:
-                        final_text = "\n".join(
-                            [p.text for p in event.content.parts if p.text]
-                        )
+                if (
+                    event.is_final_response()
+                    and event.content
+                    and event.content.parts
+                    and event.content.parts[0].text
+                ):
+                    final_text = "\n".join(
+                        [p.text for p in event.content.parts if p.text]
+                    )
         except Exception as e:
             logger.warning(
                 f"LLM run failed (falling back to deterministic form): {e}"
