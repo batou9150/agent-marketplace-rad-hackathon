@@ -21,12 +21,14 @@ engine:
     languages: [python, javascript, typescript]
     severity: ERROR
     message: "Comparaison directe de mot de passe ou secret sans algorithme à temps constant ni hachage sécurisé"
-    pattern-either:
-      - pattern: |
-          if $X.password == $Y: ...
-      - pattern: |
-          if $PASSWORD == $INPUT: ...
-      - pattern: |
-          if ($X.password === $Y) { ... }
-      - pattern: |
-          if ($PASSWORD === $INPUT) { ... }
+    patterns:
+      - pattern-either:
+          - pattern: $X == $Y
+          - pattern: $X != $Y
+      - metavariable-regex:
+          metavariable: $X
+          regex: (?i).*(password|passwd|pwd|secret_key).*
+      - pattern-not: $X == ""
+      - pattern-not: $X != ""
+      - pattern-not: $X == None
+      - pattern-not: $X != None
