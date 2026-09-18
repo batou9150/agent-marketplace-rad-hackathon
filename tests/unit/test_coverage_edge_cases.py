@@ -1,5 +1,5 @@
-"""Unit tests targeting edge cases and full branch coverage across vibe_guard modules."""
-
+import json
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -8,8 +8,10 @@ import pytest
 from vibe_guard.audit.models import ScanAuditRecord
 from vibe_guard.audit.recorder import AuditRecorder
 from vibe_guard.cli import get_default_rules_dir, main
+from vibe_guard.engine.gitleaks import _find_gitleaks_binary, run_gitleaks
 from vibe_guard.engine.models import Finding
 from vibe_guard.engine.scanner import ScanEngine
+from vibe_guard.engine.semgrep import run_semgrep
 from vibe_guard.engine.snippet import extract_bounded_snippet
 from vibe_guard.remediation.generator import RemediationGenerator
 from vibe_guard.remediation.prompts import (
@@ -372,3 +374,139 @@ def test_deduplicate_findings_empty_and_contiguous() -> None:
     assert len(deduped) == 2
     assert deduped[0].line_number == 10
     assert deduped[1].line_number == 25
+
+
+@pytest.mark.unit
+def test_gitleaks_binary_resolution(tmp_path: Path) -> None:
+    """_find_gitleaks_binary respects env var override and falls back to PATH."""
+    fake_bin = tmp_path / "custom_gitleaks"
+    fake_bin.write_text("#!/bin/sh")
+    with patch.dict("os.environ", {"VIBE_GUARD_GITLEAKS_BIN": str(fake_bin)}):
+        assert _find_gitleaks_binary() == str(fake_bin)
+
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        patch("shutil.which", return_value="/usr/bin/gitleaks"),
+    ):
+        assert _find_gitleaks_binary() == "/usr/bin/gitleaks"
+
+
+@pytest.mark.unit
+def test_gitleaks_edge_cases(tmp_path: Path, prod_pack) -> None:
+    """run_gitleaks handles missing binary, no rules, errors, timeouts, and corrupted output."""
+    # 1. Missing binary
+    with patch("vibe_guard.engine.gitleaks._find_gitleaks_binary", return_value=None):
+        findings = run_gitleaks(tmp_path, prod_pack)
+        assert len(findings) == 1
+        assert findings[0].is_tool_error
+        assert findings[0].rule_id == "TOOL-ERR-GITLEAKS"
+
+    # 2. No secrets rules in pack
+    empty_pack = MagicMock()
+    empty_pack.by_family.return_value = []
+    empty_pack.get_rule.return_value = None
+    with patch("vibe_guard.engine.gitleaks._find_gitleaks_binary", return_value="/bin/gitleaks"):
+        assert run_gitleaks(tmp_path, empty_pack) == []
+
+    # 3. Subprocess returncode != 0
+    with (
+        patch("vibe_guard.engine.gitleaks._find_gitleaks_binary", return_value="/bin/gitleaks"),
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(returncode=2, stderr="Fatal error running gitleaks"),
+        ),
+    ):
+        findings = run_gitleaks(tmp_path, prod_pack)
+        assert len(findings) == 1
+        assert findings[0].is_tool_error
+        assert "Fatal error running gitleaks" in findings[0].message
+
+    # 4. TimeoutExpired
+    with (
+        patch("vibe_guard.engine.gitleaks._find_gitleaks_binary", return_value="/bin/gitleaks"),
+        patch(
+            "subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="gitleaks", timeout=120),
+        ),
+    ):
+        findings = run_gitleaks(tmp_path, prod_pack)
+        assert len(findings) == 1
+        assert findings[0].is_tool_error
+        assert "timed out after 120s" in findings[0].message
+
+    # 5. Invalid JSON report from gitleaks
+    mock_run = MagicMock(returncode=0, stderr="")
+    with (
+        patch("vibe_guard.engine.gitleaks._find_gitleaks_binary", return_value="/bin/gitleaks"),
+        patch("subprocess.run", return_value=mock_run),
+        patch("pathlib.Path.stat", return_value=MagicMock(st_size=100)),
+        patch("builtins.open"),
+        patch("json.loads", side_effect=json.JSONDecodeError("msg", "doc", 0)),
+    ):
+        findings = run_gitleaks(tmp_path, prod_pack)
+        assert len(findings) == 1
+        assert findings[0].is_tool_error
+        assert "Invalid JSON report from Gitleaks" in findings[0].message
+
+    # 6. Unexpected exception
+    with (
+        patch("vibe_guard.engine.gitleaks._find_gitleaks_binary", return_value="/bin/gitleaks"),
+        patch("subprocess.run", side_effect=RuntimeError("Subprocess broken")),
+    ):
+        findings = run_gitleaks(tmp_path, prod_pack)
+        assert len(findings) == 1
+        assert findings[0].is_tool_error
+        assert "Unexpected error executing Gitleaks" in findings[0].message
+
+
+@pytest.mark.unit
+def test_semgrep_edge_cases(tmp_path: Path, prod_pack) -> None:
+    """run_semgrep handles non-0/1 exit code, timeouts, corrupted json, and exceptions."""
+    # 1. Non 0/1 exit code
+    with (
+        patch("vibe_guard.engine.semgrep._find_semgrep_binary", return_value="/bin/semgrep"),
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(returncode=7, stderr="Semgrep internal crash"),
+        ),
+    ):
+        findings = run_semgrep(tmp_path, prod_pack)
+        assert len(findings) == 1
+        assert findings[0].is_tool_error
+        assert "Semgrep internal crash" in findings[0].message
+
+    # 2. TimeoutExpired
+    with (
+        patch("vibe_guard.engine.semgrep._find_semgrep_binary", return_value="/bin/semgrep"),
+        patch(
+            "subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="semgrep", timeout=180),
+        ),
+    ):
+        findings = run_semgrep(tmp_path, prod_pack)
+        assert len(findings) == 1
+        assert findings[0].is_tool_error
+        assert "timed out after 180 seconds" in findings[0].message
+
+    # 3. Invalid JSON output
+    with (
+        patch("vibe_guard.engine.semgrep._find_semgrep_binary", return_value="/bin/semgrep"),
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(returncode=0, stdout="not valid json", stderr=""),
+        ),
+    ):
+        findings = run_semgrep(tmp_path, prod_pack)
+        assert len(findings) == 1
+        assert findings[0].is_tool_error
+        assert "Failed to parse Semgrep JSON output" in findings[0].message
+
+    # 4. Unexpected Exception
+    with (
+        patch("vibe_guard.engine.semgrep._find_semgrep_binary", return_value="/bin/semgrep"),
+        patch("subprocess.run", side_effect=RuntimeError("Unexpected OS error")),
+    ):
+        findings = run_semgrep(tmp_path, prod_pack)
+        assert len(findings) == 1
+        assert findings[0].is_tool_error
+        assert "Unexpected error executing Semgrep" in findings[0].message

@@ -55,6 +55,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir \
     "semgrep==1.70.0" \
     "google-adk>=2.9.1" \
+    "a2a-sdk>=0.3.0" \
     "google-genai>=1.0.0" \
     "fastapi>=0.115.0" \
     "uvicorn>=0.30.0" \

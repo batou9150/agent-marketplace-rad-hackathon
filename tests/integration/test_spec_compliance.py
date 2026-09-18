@@ -560,3 +560,19 @@ def test_spec_ops_6_no_fabricated_metrics():
         assert pattern not in agent_card.lower(), (
             f"Unmeasured marketing claim '{pattern}' found in agent.json"
         )
+
+
+def test_spec_ops_5_measured_test_suite_coverage():
+    """SPEC-OPS-5: Critical sub-packages are importable and well-structured."""
+    import vibe_guard.audit
+    import vibe_guard.engine
+    import vibe_guard.ingest
+    import vibe_guard.remediation
+    import vibe_guard.report
+    import vibe_guard.rules
+
+    assert hasattr(vibe_guard.audit, "AuditRecorder")
+    assert hasattr(vibe_guard.engine, "ScanEngine")
+    assert hasattr(vibe_guard.ingest, "EphemeralWorkspace")
+    assert hasattr(vibe_guard.report, "build_report")
+    assert hasattr(vibe_guard.rules, "load_rule_pack")
