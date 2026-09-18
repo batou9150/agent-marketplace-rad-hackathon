@@ -1,6 +1,7 @@
 """Gitleaks secret scanner executor and result normalizer for Vibe Guard."""
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -13,10 +14,10 @@ from vibe_guard.rules.loader import RulePack
 
 
 def _find_gitleaks_binary() -> str | None:
-    """Locate the gitleaks executable."""
-    for candidate in ["/opt/homebrew/bin/gitleaks", "/usr/local/bin/gitleaks"]:
-        if Path(candidate).is_file():
-            return candidate
+    """Locate the gitleaks executable via configuration or PATH (SPEC-ENG-7)."""
+    env_bin = os.environ.get("VIBE_GUARD_GITLEAKS_BIN")
+    if env_bin and Path(env_bin).is_file():
+        return env_bin
     return shutil.which("gitleaks")
 
 
@@ -118,6 +119,7 @@ def run_gitleaks(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
                 line_number=line_num,
                 snippet=snippet,
                 is_tool_error=False,
+                detected_secret=item.get("Secret") or item.get("Match"),
                 remediation_summary=default_secret_rule.remediation.summary
                 if default_secret_rule
                 else None,

@@ -16,7 +16,10 @@ from vibe_guard.rules.loader import RulePack
 
 
 def _find_semgrep_binary() -> str:
-    """Find the semgrep executable in virtualenv or PATH."""
+    """Find the semgrep executable in env, virtualenv or PATH (SPEC-ENG-7)."""
+    env_bin = os.environ.get("VIBE_GUARD_SEMGREP_BIN")
+    if env_bin and Path(env_bin).is_file():
+        return env_bin
     venv_semgrep = Path(".venv/bin/semgrep").resolve()
     if venv_semgrep.is_file() and os_is_executable(venv_semgrep):
         return str(venv_semgrep)
