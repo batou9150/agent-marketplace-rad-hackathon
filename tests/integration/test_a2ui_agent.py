@@ -19,6 +19,7 @@ from vibe_guard_a2ui.agent_executor import extract_action_context, split_a2ui_pa
 def test_agent_structure_and_tools():
     """Verify ADK root agent configuration and registered tools (SPEC-AGT-1)."""
     assert root_agent.name == "VibeGuardAgent"
+    assert root_agent.model == "gemini-3.8-flash"
     tool_names = [t.__name__ for t in root_agent.tools]
     assert "scan_repository" in tool_names
     assert "explain_finding" in tool_names
@@ -112,3 +113,19 @@ def test_action_context_extraction():
     assert query == "Scan repository configured in form"
     assert context["repo_url"] == "https://github.com/vibe/app.git"
     assert context["families"] == "AUTH,SECRETS"
+
+
+def test_spec_agt_4_deployed_mode_rejects_directory(monkeypatch):
+    """SPEC-AGT-4: In deployed/production mode, direct directory paths must be rejected."""
+    monkeypatch.setenv("VIBE_GUARD_ENV", "production")
+    result = scan_repository(source="/some/local/dir", no_llm=True)
+    assert "Error: In deployed mode" in result
+    assert "prohibited" in result
+
+
+def test_spec_agt_5_deployed_mode_rejects_unauthenticated_caller(monkeypatch):
+    """SPEC-AGT-5: In deployed mode, unauthenticated callers must be rejected (401/403)."""
+    monkeypatch.setenv("VIBE_GUARD_ENV", "production")
+    result = scan_repository(source="https://github.com/vibe/clean_app.git", no_llm=True)
+    assert "Error 401/403" in result
+    assert "Unauthenticated caller" in result

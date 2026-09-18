@@ -57,7 +57,7 @@ flowchart TB
     end
 
     subgraph ExternalServices ["Services Google Cloud & Externes"]
-        VertexAI["Vertex AI / Gemini 2.5 Flash\n(Génération de remédiation & Dédup)"]
+        VertexAI["Vertex AI / Gemini 3.8 Flash\n(Génération de remédiation & Dédup)"]
         CloudLogging["Google Cloud Logging (Audit Sinks)"]
         GitRepo["Dépôt Git Source (Clone shallow --depth 1)"]
         SecretManager["GCP Secret Manager (Configuration & Clés)"]

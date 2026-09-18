@@ -1,6 +1,7 @@
 """Contextual remediation generation using Gemini on Vertex AI (ADR-005, Constraint C2)."""
 
 import logging
+import os
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -20,13 +21,13 @@ class RemediationGenerator:
     def __init__(
         self,
         client: Any = None,
-        model: str = "gemini-2.5-flash",
+        model: str | None = None,
         max_snippet_chars: int = DEFAULT_MAX_SNIPPET_CHARS,
         enabled: bool = True,
         prompt_file: Path | str | None = None,
     ) -> None:
         self._client = client
-        self.model = model
+        self.model = model or os.getenv("VG_LLM_MODEL", "gemini-3.8-flash")
         self.max_snippet_chars = max_snippet_chars
         self.enabled = enabled
         self.prompt_template = self._load_prompt_template(prompt_file or DEFAULT_PROMPT_FILE)

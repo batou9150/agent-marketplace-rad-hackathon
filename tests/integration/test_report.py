@@ -319,3 +319,14 @@ def test_spec_rep_5_secrets_masked_in_report(scan_engine: ScanEngine, rule_pack)
     # Truncated fingerprints should be present
     assert "sk-p...[MASQUÉ]" in json_str or "sk-pr...[MASQUÉ]" in json_str or "[MASQUÉ]" in json_str
     assert "supe...[MASQUÉ]" in json_str or "[MASQUÉ]" in json_str
+
+
+def test_remediation_generator_default_model(monkeypatch) -> None:
+    """Remediation generator defaults to gemini-3.8-flash and respects VG_LLM_MODEL."""
+    monkeypatch.delenv("VG_LLM_MODEL", raising=False)
+    gen = RemediationGenerator(enabled=False)
+    assert gen.model == "gemini-3.8-flash"
+
+    monkeypatch.setenv("VG_LLM_MODEL", "gemini-3.1-pro-preview")
+    gen_custom = RemediationGenerator(enabled=False)
+    assert gen_custom.model == "gemini-3.1-pro-preview"

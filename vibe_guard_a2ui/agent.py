@@ -14,6 +14,8 @@ from typing import Any
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.tools.tool_context import ToolContext
 
+from vibe_guard.audit.models import ScanAuditRecord
+from vibe_guard.audit.recorder import AuditRecorder
 from vibe_guard.engine.models import Finding
 from vibe_guard.engine.scanner import ScanEngine
 from vibe_guard.ingest.workspace import EphemeralWorkspace, IngestionError
@@ -127,11 +129,20 @@ def scan_repository(
             f"Direct local paths are prohibited. Received: {source}"
         )
 
-    scan_id = str(uuid.uuid4())
-    start_time = time.time()
-    caller_id = "gemini_enterprise_user"
+    # SPEC-AGT-5: Require authenticated caller in deployed mode
+    caller_id = None
     if tool_context and hasattr(tool_context, "user_id") and tool_context.user_id:
         caller_id = tool_context.user_id
+    elif not is_deployed:
+        caller_id = "gemini_enterprise_user"
+
+    if is_deployed and (not caller_id or caller_id.lower() in ("anonymous", "unauthenticated", "none")):
+        return (
+            "Error 401/403: Unauthenticated caller. Scans cannot be executed without an authenticated caller identity."
+        )
+
+    scan_id = str(uuid.uuid4())
+    start_time = time.time()
 
     # Load and filter rule pack
     rules_dir = _find_rules_directory()
@@ -192,6 +203,23 @@ def scan_repository(
         target=source_clean,
         llm_remediation_enabled=not no_llm,
     )
+
+    # Record Audit (C6, SPEC-AUD-1, SPEC-AUD-2)
+    try:
+        recorder = AuditRecorder()
+        audit_record = ScanAuditRecord.from_scan(
+            scan_id=scan_id,
+            timestamp=report.timestamp,
+            duration_seconds=duration_seconds,
+            caller_id=caller_id,
+            pack_version=rule_pack.version,
+            target=source_clean,
+            findings=findings,
+            rules_evaluated=[r.id for r in rule_pack.rules],
+        )
+        recorder.record(audit_record)
+    except Exception as exc:
+        logger.warning(f"Failed to persist audit log: {exc}")
 
     # Cache report in session for follow-up questions / explain_finding
     _store_report(report, tool_context)
