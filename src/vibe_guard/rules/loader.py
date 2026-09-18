@@ -36,9 +36,10 @@ class RulePack:
         """Find a rule by its ID."""
         return self._rules_by_id.get(rule_id)
 
-    def by_family(self, family: Family) -> list[RuleDef]:
-        """Filter rules by family."""
-        return [rule for rule in self.rules if rule.family == family]
+    def by_family(self, family: Family | str) -> list[RuleDef]:
+        """Filter rules by family (accepts Family enum or string)."""
+        target = family.value if isinstance(family, Family) else str(family)
+        return [rule for rule in self.rules if rule.family.value == target]
 
     def get_semgrep_rules(self) -> list[dict[str, Any]]:
         """Extract all Semgrep rule definitions with embedded Vibe Guard metadata."""

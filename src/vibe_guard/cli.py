@@ -15,7 +15,7 @@ from vibe_guard.ingest.workspace import EphemeralWorkspace, IngestionError
 from vibe_guard.remediation.generator import RemediationGenerator
 from vibe_guard.report.builder import build_report
 from vibe_guard.report.renderer import render_json, render_markdown
-from vibe_guard.rules.loader import RuleValidationError, load_rule_pack
+from vibe_guard.rules.loader import RulePack, RuleValidationError, load_rule_pack
 from vibe_guard.rules.models import Family
 
 
@@ -49,6 +49,17 @@ def run_scan(args: argparse.Namespace) -> int:
     # 1. Load rule pack (E-RUL-* returns exit code 2)
     try:
         pack = load_rule_pack(rules_dir)
+        if getattr(args, "families", None):
+            fam_items = [f.strip() for f in args.families.split(",") if f.strip()]
+            valid_enums = set()
+            for f in fam_items:
+                try:
+                    valid_enums.add(Family(f))
+                except ValueError:
+                    sys.stderr.write(f"Famille inconnue : {f}\n")
+                    return 2
+            filtered_rules = [r for r in pack.rules if r.family in valid_enums]
+            pack = RulePack(manifest=pack.manifest, rules=filtered_rules, directory=pack.directory)
     except (RuleValidationError, FileNotFoundError, Exception) as exc:
         sys.stderr.write(f"Erreur de chargement des règles : {exc}\n")
         return 2
@@ -217,7 +228,13 @@ def build_parser() -> argparse.ArgumentParser:
         "source", help="Chemin local, archive (.zip, .tar.gz) ou URL Git HTTPS"
     )
     scan_parser.add_argument("--branch", "-b", help="Branche Git à analyser")
-    scan_parser.add_argument("--rules", "-r", help="Répertoire du pack de règles")
+    scan_parser.add_argument(
+        "--rules", "--rules-pack", "-r", dest="rules", help="Répertoire du pack de règles"
+    )
+    scan_parser.add_argument(
+        "--families",
+        help="Familles de règles à évaluer (séparées par des virgules, ex: AUTH,SECRETS)",
+    )
     scan_parser.add_argument(
         "--no-llm",
         action="store_true",
@@ -230,7 +247,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Format du rapport de sortie (défaut: markdown)",
     )
     scan_parser.add_argument(
-        "--out", "-o", help="Chemin du fichier ou préfixe d'enregistrement du rapport"
+        "--out",
+        "--out-file",
+        "-o",
+        dest="out",
+        help="Chemin du fichier ou préfixe d'enregistrement du rapport",
     )
     scan_parser.add_argument("--caller-id", help="Identité de l'appelant pour le journal d'audit")
     scan_parser.add_argument("--audit-dir", help="Répertoire de stockage des traces d'audit")
@@ -240,10 +261,14 @@ def build_parser() -> argparse.ArgumentParser:
     rules_sub = rules_parser.add_subparsers(dest="rules_action", required=True)
 
     val_parser = rules_sub.add_parser("validate", help="Valider la conformité d'un pack de règles")
-    val_parser.add_argument("--rules", "-r", help="Répertoire du pack de règles à valider")
+    val_parser.add_argument(
+        "--rules", "--rules-pack", "-r", dest="rules", help="Répertoire du pack de règles à valider"
+    )
 
     list_parser = rules_sub.add_parser("list", help="Lister les règles disponibles")
-    list_parser.add_argument("--rules", "-r", help="Répertoire du pack de règles")
+    list_parser.add_argument(
+        "--rules", "--rules-pack", "-r", dest="rules", help="Répertoire du pack de règles"
+    )
     list_parser.add_argument(
         "--family",
         "-f",

@@ -37,6 +37,8 @@ def run_gitleaks(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
     default_secret_rule = rule_pack.get_rule("SECRETS-001") or (
         secrets_rules[0] if secrets_rules else None
     )
+    if not secrets_rules and not default_secret_rule:
+        return []
 
     with tempfile.NamedTemporaryFile(
         mode="w",
