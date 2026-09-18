@@ -106,6 +106,7 @@ def build_scan_form_surface(surface_id: str | None = None) -> dict[str, Any]:
         {
             "id": "main_card",
             "component": "MaterialCard",
+            "appearance": "raised",
             "children": ["main_col"],
         },
         {
@@ -174,7 +175,7 @@ def build_scan_form_surface(surface_id: str | None = None) -> dict[str, Any]:
             "id": "btn_submit",
             "component": "MaterialButton",
             "label": "Launch Security Audit",
-            "appearance": "filled",
+            "variant": "raised",
             "color": "primary",
             "action": _action(
                 "submit_scan",
@@ -225,6 +226,7 @@ def build_dashboard_canvas_surface(report: Report, surface_id: str | None = None
         {
             "id": "metrics_card",
             "component": "MaterialCard",
+            "appearance": "raised",
             "children": ["metrics_col"],
         },
         {
@@ -315,6 +317,7 @@ def build_dashboard_canvas_surface(report: Report, surface_id: str | None = None
                 {
                     "id": card_id,
                     "component": "MaterialCard",
+                    "appearance": "outlined",
                     "children": [col_id],
                 },
                 {
@@ -351,7 +354,7 @@ def build_dashboard_canvas_surface(report: Report, surface_id: str | None = None
                     "id": btn_id,
                     "component": "MaterialButton",
                     "label": "Inspect & Remediate (GCP)",
-                    "appearance": "outlined",
+                    "variant": "stroked",
                     "action": _action(
                         "explain_finding",
                         f"Explain finding {finding.rule_id} in {finding.file_path}",
@@ -402,6 +405,7 @@ def build_finding_detail_surface(
         {
             "id": "detail_card",
             "component": "MaterialCard",
+            "appearance": "raised",
             "children": ["detail_col"],
         },
         {
@@ -491,7 +495,7 @@ def build_finding_detail_surface(
             "id": "btn_back",
             "component": "MaterialButton",
             "label": "← Back to Dashboard",
-            "appearance": "outlined",
+            "variant": "stroked",
             "action": _action("show_dashboard", "Show the security scan dashboard"),
         },
     ]

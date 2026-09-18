@@ -209,19 +209,23 @@
             border: 1px solid transparent;
             transition: background 0.2s;
         }
-        .material-button.filled {
+        .material-button.filled,
+        .material-button.raised {
             background: var(--primary);
             color: white;
         }
-        .material-button.filled:hover {
+        .material-button.filled:hover,
+        .material-button.raised:hover {
             background: var(--primary-hover);
         }
-        .material-button.outlined {
+        .material-button.outlined,
+        .material-button.stroked {
             background: transparent;
             border-color: var(--border);
             color: var(--primary);
         }
-        .material-button.outlined:hover {
+        .material-button.outlined:hover,
+        .material-button.stroked:hover {
             background: #f1f3f4;
         }
         .choice-picker {
@@ -673,7 +677,7 @@
 
             if (type === 'MaterialButton') {
                 const btn = document.createElement('button');
-                btn.className = 'material-button ' + (comp.appearance || comp.variant || 'filled');
+                btn.className = 'material-button ' + (comp.variant || comp.appearance || 'raised');
                 btn.innerText = comp.label || 'Action';
 
                 if (comp.action) {

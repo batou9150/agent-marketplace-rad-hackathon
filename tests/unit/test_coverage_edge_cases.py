@@ -510,3 +510,145 @@ def test_semgrep_edge_cases(tmp_path: Path, prod_pack) -> None:
         assert len(findings) == 1
         assert findings[0].is_tool_error
         assert "Unexpected error executing Semgrep" in findings[0].message
+
+
+@pytest.mark.unit
+def test_remediation_generator_edge_cases(tmp_path: Path) -> None:
+    """RemediationGenerator handles missing prompts, client failures, and tool errors."""
+    # 1. Missing prompt template raises FileNotFoundError
+    non_existent = tmp_path / "does_not_exist.txt"
+    with pytest.raises(FileNotFoundError, match="Remediation prompt template not found"):
+        RemediationGenerator(prompt_file=non_existent)
+
+    # 2. Lazy client init failure disables generator
+    gen = RemediationGenerator(enabled=True)
+    with patch("builtins.__import__", side_effect=ImportError("No genai")):
+        assert gen._get_client() is None
+        assert not gen.enabled
+
+    # 3. Disabled generator returns None and skips enrich_findings
+    gen_disabled = RemediationGenerator(enabled=False)
+    dummy_finding = Finding(
+        rule_id="AUTH-001",
+        family="AUTH",
+        severity="high",
+        title="No Auth",
+        file_path="app.py",
+        line_number=1,
+        message="Missing auth",
+    )
+    assert gen_disabled.generate_advice(dummy_finding) is None
+    assert gen_disabled.enrich_findings([dummy_finding]) == {}
+
+    # 4. Tool error finding returns None
+    tool_error_finding = Finding(
+        rule_id="TOOL-ERR-GITLEAKS",
+        family="SECRETS",
+        severity="medium",
+        title="Tool error",
+        file_path="",
+        line_number=0,
+        message="Error",
+        is_tool_error=True,
+    )
+    assert gen.generate_advice(tool_error_finding) is None
+    assert gen.enrich_findings([tool_error_finding]) == {}
+
+    # 5. Untruncated snippet (<= max_snippet_chars) and client returning text
+    sample_file = tmp_path / "app.py"
+    sample_file.write_text("line1\nline2\n", encoding="utf-8")
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = MagicMock(text="Utiliser Cloud Run et IAP")
+    gen_active = RemediationGenerator(enabled=True, client=mock_client, max_snippet_chars=1000)
+    finding_with_short_snippet = Finding(
+        rule_id="AUTH-001",
+        family="AUTH",
+        severity="high",
+        title="No Auth",
+        file_path="app.py",
+        line_number=1,
+        message="Missing auth",
+        snippet=extract_bounded_snippet(sample_file, 1, 1),
+    )
+    advice = gen_active.generate_advice(finding_with_short_snippet)
+    assert advice == "Utiliser Cloud Run et IAP"
+
+    # 6. Alias generate_contextual_advice
+    assert (
+        gen_active.generate_contextual_advice(finding_with_short_snippet)
+        == "Utiliser Cloud Run et IAP"
+    )
+
+    # 7. Response with empty/None text returns None
+    mock_client.models.generate_content.return_value = MagicMock(text=None)
+    assert gen_active.generate_advice(finding_with_short_snippet) is None
+
+    # 8. Client is None returns None
+    gen_no_client = RemediationGenerator(enabled=True)
+    with patch.object(gen_no_client, "_get_client", return_value=None):
+        assert gen_no_client.generate_advice(finding_with_short_snippet) is None
+
+
+@pytest.mark.unit
+def test_cli_additional_branches(tmp_path: Path) -> None:
+    """CLI handles unknown rule family, git clone source, audit errors, and cwd rules fallback."""
+    # 1. rules list with invalid family raises SystemExit with code 2
+    with pytest.raises(SystemExit) as exc_info:
+        main(["rules", "list", "--family", "UNKNOWN_FAM"])
+    assert exc_info.value.code == 2
+
+    # 2. scan with git clone source
+    repo_sample = tmp_path / "repo.bundle"
+    repo_sample.touch()
+    with (
+        patch("vibe_guard.ingest.workspace.EphemeralWorkspace.clone_git", return_value=tmp_path),
+        patch("vibe_guard.engine.scanner.ScanEngine.scan", return_value=[]),
+    ):
+        code = main(["scan", "https://github.com/example/repo.git", "--no-llm"])
+        assert code == 0
+
+    # 3. scan with IngestionError returns 2
+    with patch(
+        "vibe_guard.ingest.workspace.EphemeralWorkspace.copy_directory",
+        side_effect=Exception("Disk failure"),
+    ):
+        code = main(["scan", str(tmp_path), "--no-llm"])
+        assert code == 2
+
+    # 4. scan with LLM remediation enabled executes successfully
+    mock_generator = MagicMock()
+    mock_generator.prompt_version = "v1"
+    mock_generator.enrich_findings.return_value = {"AUTH-001:app.py:1": "Conseil LLM"}
+    with (
+        patch(
+            "vibe_guard.ingest.workspace.EphemeralWorkspace.copy_directory",
+            return_value=tmp_path,
+        ),
+        patch("vibe_guard.engine.scanner.ScanEngine.scan", return_value=[]),
+        patch("vibe_guard.cli.RemediationGenerator", return_value=mock_generator),
+    ):
+        code = main(["scan", str(tmp_path)])
+        assert code == 0
+
+    # 5. scan with AuditRecorder throwing an exception does not fail scan
+    with (
+        patch(
+            "vibe_guard.ingest.workspace.EphemeralWorkspace.copy_directory",
+            return_value=tmp_path,
+        ),
+        patch("vibe_guard.engine.scanner.ScanEngine.scan", return_value=[]),
+        patch("vibe_guard.audit.recorder.AuditRecorder.record", side_effect=OSError("Read-only")),
+    ):
+        code = main(["scan", str(tmp_path), "--no-llm"])
+        assert code == 0
+
+    # 6. get_default_rules_dir falls back to Path.cwd() / "rules" if repo root doesn't match
+    cwd_rules = tmp_path / "rules"
+    cwd_rules.mkdir()
+    (cwd_rules / "pack.yaml").write_text("manifest:\n  name: cwd\n  version: 0.1\n")
+    with (
+        patch("pathlib.Path.is_dir", side_effect=lambda: True),
+        patch("pathlib.Path.is_file", side_effect=lambda: True),
+    ):
+        resolved = get_default_rules_dir()
+        assert resolved is not None
