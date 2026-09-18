@@ -32,7 +32,7 @@ flowchart TB
             ScanEngine["ScanEngine (Orchestrateur)"]
             SemgrepProc["Semgrep OSS Runner\n(Subprocess AST/Code)"]
             GitleaksProc["Gitleaks Runner\n(Subprocess Secrets)"]
-            SnippetExtractor["SnippetExtractor\n(Fenêtre bornée +/- 5 lignes)"]
+            SnippetExtractor["SnippetExtractor\n(Fenêtre bornée +/- 4 lignes)"]
         end
 
         subgraph RulesRepository ["Référentiel de Règles Déclaratif (rules/)"]
@@ -144,7 +144,7 @@ sequenceDiagram
         and Détection Secrets
             Engine->>Engine: Exécuter Gitleaks (Secrets)
         end
-        Engine->>Engine: Extraire les snippets bornés (+/- 5 lignes)
+        Engine->>Engine: Extraire les snippets bornés (+/- 4 lignes)
         Engine-->>Agent: raw_findings (liste de Finding)
         deactivate Engine
     option Bloc finally (C2)
@@ -197,7 +197,7 @@ sequenceDiagram
 | Contrainte | Composant Responsable | Mécanisme d'application |
 |---|---|---|
 | **C1 : Analyse statique uniquement** | `vibe_guard.engine` | Aucun build, aucun `exec`/`eval`, aucun chargement dynamique. Le code est lu comme de la donnée brute. |
-| **C2 : Code sensible & éphémère** | `vibe_guard.ingest` + `SnippetExtractor` | Dossier temporaire purgé systématiquement en bloc `finally`. Seuls des extraits bornés (±5 lignes) sont transmis à Vertex AI. |
+| **C2 : Code sensible & éphémère** | `vibe_guard.ingest` + `SnippetExtractor` | Dossier temporaire purgé systématiquement en bloc `finally`. Seuls des extraits bornés (±4 lignes) sont transmis à Vertex AI. |
 | **C3 : Réutilisation de l'OSS** | Semgrep OSS + Gitleaks | Outils standards de référence pour le code et les secrets ; aucun moteur de parsing regex fait maison. |
 | **C4 : Référentiel déclaratif** | `rules/` + `vibe_guard.rules` | Format YAML enveloppant, validé par schéma Pydantic, extensible par de simples fichiers YAML sans toucher au code Python. |
 | **C5 : Cible GCP-native** | `vibe_guard.remediation` | Toutes les remédiations recommandent l'écosystème managé : Cloud Run, Secret Manager, Identity-Aware Proxy (IAP), Vertex AI. |
