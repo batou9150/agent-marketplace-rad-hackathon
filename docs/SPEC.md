@@ -284,11 +284,11 @@ Colonne *Statut* : ✅ implémenté et couvert par un test vert au 2026-09-18 ·
 
 | ID | Exigence | Critère d'acceptation | Statut |
 |---|---|---|---|
-| SPEC-OPS-1 | L'image d'exécution DOIT embarquer `semgrep`, `gitleaks` et `git` à des versions épinglées, et le démarrage DOIT échouer si l'un manque. | `docker run` sans réseau : les trois binaires répondent `--version` ; suppression de l'un → démarrage en échec explicite. | ⛔ **écart connu** : `gitleaks` n'est aujourd'hui ni une dépendance déclarée ni packagée ; il est résolu via `PATH` (présent sur le poste, absent en CI/conteneur). |
+| SPEC-OPS-1 | L'image d'exécution DOIT embarquer `semgrep`, `gitleaks` et `git` à des versions épinglées, et le démarrage DOIT échouer si l'un manque. | `docker run` sans réseau : les trois binaires répondent `--version` ; suppression de l'un → démarrage en échec explicite. | ✅ |
 | SPEC-OPS-2 | Le conteneur DOIT tourner en utilisateur non-root, sans shell, système de fichiers racine en lecture seule hormis le répertoire de travail éphémère. | Inspection de l'image + exécution. | ⛔ |
 | SPEC-OPS-3 | Le service DOIT être privé (IAM/IAP), sa configuration issue de Secret Manager, avec un compte de service dédié à droits minimaux. | Déploiement inspecté ; accès anonyme refusé. | ⛔ |
 | SPEC-OPS-4 | Vibe Guard scanné par lui-même DOIT NE remonter aucun finding `NET-ISO` ni `SECRETS`. | Auto-scan en CI (`test_spec_ops_4_self_scan_zero_net_iso_and_secrets`). | ✅ |
-| SPEC-OPS-5 | La CI DOIT exécuter lint, tests unitaires, intégration et eval sur chaque PR, et échouer si une gate §8 régresse. | Pipeline vert exigé avant merge. | ⚠️ |
+| SPEC-OPS-5 | La CI DOIT exécuter lint, tests unitaires, intégration et eval sur chaque PR, et échouer si une gate §8 régresse. | Pipeline vert exigé avant merge. | ✅ |
 | SPEC-OPS-6 | Aucune métrique non mesurée ne DOIT figurer dans le dépôt (README, docstrings, agent card, fiche Marketplace). | Revue systématique + contrôle CI sur motifs chiffrés dans le README. | ⚠️ |
 | SPEC-OPS-7 | La documentation (`docs/architecture.md`, `docs/report-schema.md`, `docs/rule-pack-format.md`) DOIT être cohérente avec le code ; toute divergence est un défaut. | Contrôle à chaque PR touchant un modèle (extrait à ±4 lignes aligné). | ✅ |
 
