@@ -29,7 +29,21 @@ uv sync --all-extras --dev
 ## Lancer les tests
 
 ```bash
-uv run pytest tests/unit -v
+uv run pytest tests/ -v
+```
+
+## Utilisation CLI
+
+```bash
+# Lister les règles du pack
+uv run vibe-guard rules list
+
+# Valider l'intégrité du pack de règles
+uv run vibe-guard rules validate
+
+# Scanner un dépôt local ou distant
+uv run vibe-guard scan fixtures/conform/clean_python_app --no-llm
+uv run vibe-guard scan fixtures/nonconform/app_secrets_leak --no-llm
 ```
 
 ## Linting et formatage
