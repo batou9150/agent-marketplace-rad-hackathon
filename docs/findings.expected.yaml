@@ -1,0 +1,53 @@
+# Instance de référence §7.1 — attendus d'une fixture non conforme.
+# Emplacement cible : fixtures/nonconform/<nom>/findings.expected.yaml
+# T-09 : chaque entrée doit être couverte par au moins un finding de même rule_id,
+# même path, et dont l'intervalle de lignes recouvre [start_line, end_line].
+# Une fixture "conform" contient exactement : []
+- rule_id: AUTH-001
+  path: app/main.py
+  start_line: 24
+  end_line: 24
+- rule_id: AUTH-002
+  path: app/auth.py
+  start_line: 11
+  end_line: 11
+- rule_id: SEC-001
+  path: app/config.py
+  start_line: 3
+  end_line: 3
+- rule_id: SEC-002
+  path: .env
+  start_line: 1
+  end_line: 1
+- rule_id: SEC-003
+  path: Dockerfile
+  start_line: 7
+  end_line: 7
+- rule_id: LLM-001
+  path: app/llm.py
+  start_line: 1
+  end_line: 1
+- rule_id: LLM-002
+  path: app/llm.py
+  start_line: 18
+  end_line: 21
+- rule_id: LLM-003
+  path: app/llm.py
+  start_line: 15
+  end_line: 15
+- rule_id: NET-001
+  path: infra/cloudrun.tf
+  start_line: 9
+  end_line: 9
+- rule_id: NET-002
+  path: Dockerfile
+  start_line: 1
+  end_line: 12
+- rule_id: NET-003
+  path: Dockerfile
+  start_line: 12
+  end_line: 12
+- rule_id: NET-004
+  path: Dockerfile
+  start_line: 10
+  end_line: 10

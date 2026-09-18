@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sfeir.com/vibe-guard/schemas/report.schema.json",
+  "title": "vibe-guard Report (CT-03) et Finding (CT-02)",
+  "description": "Contrat de sortie d'un scan. Le Markdown est dérivé de ce JSON et n'est pas un contrat. L'ordre de findings[] est normatif (FR-08).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scan", "summary", "findings"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "scan": { "$ref": "#/$defs/scan" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    }
+  },
+  "$defs": {
+    "family": {
+      "type": ["string", "null"],
+      "enum": ["auth", "secrets", "llm-gov", "net-iso", null]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"]
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "start_line", "end_line"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relatif à la racine de la source, séparateur '/', jamais de '..' ni de préfixe '/'.",
+          "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$"
+        },
+        "start_line": { "type": "integer", "minimum": 1 },
+        "end_line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "detector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "native_id", "version"],
+      "properties": {
+        "tool": { "type": "string", "enum": ["semgrep", "gitleaks"] },
+        "native_id": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "remediation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["static", "llm", "llm_error"],
+      "properties": {
+        "static": { "type": "string", "minLength": 1 },
+        "llm": { "type": ["string", "null"] },
+        "llm_error": { "type": ["string", "null"] }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "rule_id", "family", "severity", "title", "occurrences", "detector"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$",
+          "description": "sha256(rule_id + NUL + path + NUL + start_line) tronqué à 16 hex. Pour tool_error : sha256(rule_id) tronqué."
+        },
+        "kind": { "type": "string", "enum": ["violation", "tool_error"] },
+        "rule_id": {
+          "type": "string",
+          "pattern": "^((AUTH|SEC|LLM|NET)-[0-9]{3}|TOOL-(semgrep|gitleaks))$"
+        },
+        "family": { "$ref": "#/$defs/family" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "title": { "type": "string", "minLength": 1 },
+        "location": { "$ref": "#/$defs/location" },
+        "occurrences": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/location" }
+        },
+        "snippet": { "type": ["string", "null"] },
+        "detector": { "$ref": "#/$defs/detector" },
+        "remediation": { "$ref": "#/$defs/remediation" },
+        "message": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "violation" } } },
+          "then": {
+            "required": ["location", "remediation"],
+            "properties": {
+              "family": { "type": "string" },
+              "rule_id": { "pattern": "^(AUTH|SEC|LLM|NET)-[0-9]{3}$" }
+            },
+            "not": { "required": ["message"] }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "tool_error" } } },
+          "then": {
+            "required": ["message"],
+            "properties": {
+              "family": { "type": "null" },
+              "severity": { "const": "medium" },
+              "rule_id": { "pattern": "^TOOL-(semgrep|gitleaks)$" }
+            },
+            "not": { "anyOf": [ { "required": ["location"] }, { "required": ["remediation"] }, { "required": ["snippet"] } ] }
+          }
+        }
+      ]
+    },
+    "toolStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "status", "unmapped"],
+      "properties": {
+        "name": { "type": "string", "enum": ["semgrep", "gitleaks"] },
+        "version": { "type": ["string", "null"] },
+        "status": { "type": "string", "enum": ["ok", "error", "skipped"] },
+        "unmapped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Résultats bruts sans règle produit correspondante, ignorés (FR-06)."
+        }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "started_at", "finished_at", "duration_ms", "source", "pack", "tools", "llm", "skipped_files"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "started_at": { "type": "string", "format": "date-time" },
+        "finished_at": { "type": "string", "format": "date-time" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "type": "string", "enum": ["git", "archive"] },
+            "url": {
+              "type": "string",
+              "description": "Sans composant userinfo (CT-03).",
+              "pattern": "^https://[^@/]+(/.*)?$"
+            },
+            "ref": { "type": "string" },
+            "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "archive_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "file_count": { "type": "integer", "minimum": 0 }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "type": { "const": "git" } } },
+              "then": { "required": ["url", "commit"] }
+            },
+            {
+              "if": { "properties": { "type": { "const": "archive" } } },
+              "then": { "required": ["archive_sha256"] }
+            }
+          ]
+        },
+        "pack": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version", "rules_evaluated"],
+          "properties": {
+            "name": { "type": "string" },
+            "version": { "type": "string" },
+            "rules_evaluated": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^(AUTH|SEC|LLM|NET)-[0-9]{3}$" }
+            }
+          }
+        },
+        "tools": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/toolStatus" }
+        },
+        "llm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "model", "prompt_sha256"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "model": { "type": ["string", "null"] },
+            "prompt_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "enabled": { "const": true } } },
+              "then": { "properties": { "model": { "type": "string" }, "prompt_sha256": { "type": "string" } } }
+            },
+            {
+              "if": { "properties": { "enabled": { "const": false } } },
+              "then": { "properties": { "model": { "type": "null" }, "prompt_sha256": { "type": "null" } } }
+            }
+          ]
+        },
+        "skipped_files": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Fichiers hors langages couverts (FR-15)."
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "violations", "tool_errors", "by_severity", "by_family"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "violations": { "type": "integer", "minimum": 0 },
+        "tool_errors": { "type": "integer", "minimum": 0 },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["critical", "high", "medium", "low"],
+          "properties": {
+            "critical": { "type": "integer", "minimum": 0 },
+            "high": { "type": "integer", "minimum": 0 },
+            "medium": { "type": "integer", "minimum": 0 },
+            "low": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "by_family": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["auth", "secrets", "llm-gov", "net-iso"],
+          "properties": {
+            "auth": { "type": "integer", "minimum": 0 },
+            "secrets": { "type": "integer", "minimum": 0 },
+            "llm-gov": { "type": "integer", "minimum": 0 },
+            "net-iso": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}

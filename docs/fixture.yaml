@@ -1,0 +1,9 @@
+# Instance de référence §7.1 — métadonnées d'une fixture.
+# Emplacement cible : fixtures/nonconform/<nom>/fixture.yaml
+name: fastapi-all-families
+description: >
+  Application FastAPI générée par IA (assistant de support interne), avec
+  Dockerfile et Terraform Cloud Run. Cumule volontairement les quatre familles.
+  AUTH-003 est absent de cette fixture : couvert par la fixture "express-public-invoker".
+languages: [python, dockerfile, terraform]
+families_targeted: [auth, secrets, llm-gov, net-iso]

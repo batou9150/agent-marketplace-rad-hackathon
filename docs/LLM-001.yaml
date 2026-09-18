@@ -1,0 +1,46 @@
+# Instance de référence CT-01 — une règle produit.
+# Emplacement cible : rules/llm-gov/LLM-001.yaml
+# Le fichier Semgrep référencé (LLM-001.semgrep.yaml) contient exactement une règle d'id "LLM-001".
+
+id: LLM-001
+family: llm-gov
+severity: high
+title: Appel direct à une API LLM depuis le code applicatif
+languages: [python, javascript, typescript]
+
+detector:
+  tool: semgrep
+  rule: ./LLM-001.semgrep.yaml
+
+heuristic: false
+
+rationale: >
+  Un appel direct à un fournisseur LLM (SDK openai/anthropic/google.generativeai,
+  ou requête HTTP vers api.openai.com, api.anthropic.com,
+  generativelanguage.googleapis.com) contourne la passerelle de la plateforme.
+  Conséquences : pas de quota ni de plafond de coût par application, pas de
+  journalisation centralisée des prompts, pas de filtrage de contenu, clé API
+  gérée au niveau de l'application (souvent en clair, voir SEC-001), et
+  impossibilité de changer de modèle ou de fournisseur sans modifier chaque
+  application.
+
+example: |
+  from openai import OpenAI
+  client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+  resp = client.chat.completions.create(model="gpt-4o", messages=msgs)
+
+remediation:
+  gcp: >
+    Remplacer l'appel direct par un appel à la passerelle LLM de la plateforme,
+    exposée comme endpoint Vertex AI géré (ou service interne équivalent),
+    authentifié par le compte de service Cloud Run de l'application via IAM —
+    aucune clé API dans l'application. La passerelle porte le quota par
+    application, la journalisation des requêtes, le filtrage de contenu et le
+    choix du modèle. Si l'application doit rester sur un fournisseur tiers,
+    l'appel passe tout de même par la passerelle, qui détient la clé dans
+    Secret Manager.
+
+references:
+  - https://cloud.google.com/vertex-ai/generative-ai/docs/overview
+
+since: 0.1.0

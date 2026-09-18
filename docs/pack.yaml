@@ -1,0 +1,20 @@
+# Instance de référence CT-01 — manifeste du pack.
+# Emplacement cible : rules/pack.yaml
+name: vibe-guard-default
+version: 0.1.0
+description: Pack V1 — quatre familles, 13 règles (FR-16).
+families: [auth, secrets, llm-gov, net-iso]
+rules:
+  - auth/AUTH-001.yaml
+  - auth/AUTH-002.yaml
+  - auth/AUTH-003.yaml
+  - secrets/SEC-001.yaml
+  - secrets/SEC-002.yaml
+  - secrets/SEC-003.yaml
+  - llm-gov/LLM-001.yaml
+  - llm-gov/LLM-002.yaml
+  - llm-gov/LLM-003.yaml
+  - net-iso/NET-001.yaml
+  - net-iso/NET-002.yaml
+  - net-iso/NET-003.yaml
+  - net-iso/NET-004.yaml

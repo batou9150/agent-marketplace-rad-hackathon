@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sfeir.com/vibe-guard/schemas/rule-pack.schema.json",
+  "title": "vibe-guard RulePack (CT-01)",
+  "description": "Contrat du manifeste rules/pack.yaml et des fichiers de règle rules/<famille>/<ID>.yaml. Les contraintes inter-fichiers (unicité des id, existence des fichiers Semgrep, cohérence préfixe/famille) sont vérifiées par le chargeur (FR-04), pas par ce schéma.",
+  "$defs": {
+    "family": {
+      "type": "string",
+      "enum": ["auth", "secrets", "llm-gov", "net-iso"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"]
+    },
+    "language": {
+      "type": "string",
+      "enum": ["python", "javascript", "typescript", "dockerfile", "terraform", "generic"]
+    },
+    "ruleId": {
+      "type": "string",
+      "pattern": "^(AUTH|SEC|LLM|NET)-[0-9]{3}$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "detectorSemgrep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "rule"],
+      "properties": {
+        "tool": { "const": "semgrep" },
+        "rule": {
+          "type": "string",
+          "description": "Chemin relatif au fichier de règle produit vers un fichier Semgrep contenant exactement une règle dont l'id égale l'id produit.",
+          "pattern": "\\.ya?ml$"
+        }
+      }
+    },
+    "detectorGitleaks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "rule_ids"],
+      "properties": {
+        "tool": { "const": "gitleaks" },
+        "rule_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "config": {
+          "type": "string",
+          "description": "Chemin relatif optionnel vers un fichier de configuration gitleaks (.toml) ajoutant des règles.",
+          "pattern": "\\.toml$"
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "family", "severity", "title", "languages", "detector", "rationale", "example", "remediation", "since"],
+      "properties": {
+        "id": { "$ref": "#/$defs/ruleId" },
+        "family": { "$ref": "#/$defs/family" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "title": { "type": "string", "minLength": 8, "maxLength": 120 },
+        "languages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/language" }
+        },
+        "detector": {
+          "oneOf": [
+            { "$ref": "#/$defs/detectorSemgrep" },
+            { "$ref": "#/$defs/detectorGitleaks" }
+          ]
+        },
+        "heuristic": {
+          "type": "boolean",
+          "default": false,
+          "description": "true si la règle est connue pour produire des faux positifs par conception (ex. AUTH-001). Doit alors être mentionné dans rationale."
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 40,
+          "description": "Pourquoi c'est un problème. Français."
+        },
+        "example": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Extrait minimal de code non conforme déclenchant la règle."
+        },
+        "remediation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gcp"],
+          "properties": {
+            "gcp": {
+              "type": "string",
+              "minLength": 40,
+              "description": "Remédiation statique GCP-natif (FR-09). Français. Copiée telle quelle dans finding.remediation.static."
+            }
+          }
+        },
+        "references": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" }
+        },
+        "since": {
+          "$ref": "#/$defs/semver",
+          "description": "Version du pack qui a introduit la règle."
+        },
+        "deprecated": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "pack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "families", "rules"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "version": { "$ref": "#/$defs/semver" },
+        "description": { "type": "string" },
+        "families": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/family" }
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "description": "Chemin relatif à rules/ vers un fichier de règle.",
+            "pattern": "^(auth|secrets|llm-gov|net-iso)/(AUTH|SEC|LLM|NET)-[0-9]{3}\\.ya?ml$"
+          }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/pack" },
+    { "$ref": "#/$defs/rule" }
+  ]
+}

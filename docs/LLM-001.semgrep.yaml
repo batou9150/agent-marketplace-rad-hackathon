@@ -1,0 +1,27 @@
+# Squelette de la règle Semgrep référencée par LLM-001.yaml.
+# Contrainte CT-01 : exactement une règle, id == id produit.
+# Les patterns ci-dessous sont un point de départ — la validation se fait par T-09/T-10
+# sur le corpus, pas par relecture. L'implémentation les complète (Express/fetch, Next.js…).
+rules:
+  - id: LLM-001
+    severity: WARNING
+    languages: [python, javascript, typescript]
+    message: Appel direct à une API LLM depuis le code applicatif (voir règle produit LLM-001).
+    metadata:
+      vibe-guard.family: llm-gov
+    pattern-either:
+      - pattern: import openai
+      - pattern: from openai import $X
+      - pattern: import anthropic
+      - pattern: from anthropic import $X
+      - pattern: import google.generativeai
+      - pattern: from google.generativeai import $X
+      - pattern: requests.$M("https://api.openai.com/...", ...)
+      - pattern: requests.$M("https://api.anthropic.com/...", ...)
+      - pattern: requests.$M("https://generativelanguage.googleapis.com/...", ...)
+      - pattern: import $X from "openai"
+      - pattern: import $X from "@anthropic-ai/sdk"
+      - pattern: import $X from "@google/generative-ai"
+      - pattern: fetch("https://api.openai.com/...", ...)
+      - pattern: fetch("https://api.anthropic.com/...", ...)
+      - pattern: fetch("https://generativelanguage.googleapis.com/...", ...)

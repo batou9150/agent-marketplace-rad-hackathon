@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0",
+  "scan": {
+    "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "started_at": "2026-09-18T10:00:00Z",
+    "finished_at": "2026-09-18T10:00:42Z",
+    "duration_ms": 42000,
+    "source": {
+      "type": "git",
+      "url": "https://github.com/org/repo",
+      "ref": "main",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "pack": {
+      "name": "vibe-guard-default",
+      "version": "0.1.0",
+      "rules_evaluated": [
+        "LLM-001"
+      ]
+    },
+    "tools": [
+      {
+        "name": "semgrep",
+        "version": "1.0.0",
+        "status": "ok",
+        "unmapped": 0
+      },
+      {
+        "name": "gitleaks",
+        "version": "8.0.0",
+        "status": "ok",
+        "unmapped": 0
+      }
+    ],
+    "llm": {
+      "enabled": false,
+      "model": null,
+      "prompt_sha256": null
+    },
+    "skipped_files": 3
+  },
+  "summary": {
+    "total": 1,
+    "violations": 1,
+    "tool_errors": 0,
+    "by_severity": {
+      "critical": 0,
+      "high": 1,
+      "medium": 0,
+      "low": 0
+    },
+    "by_family": {
+      "auth": 0,
+      "secrets": 0,
+      "llm-gov": 1,
+      "net-iso": 0
+    }
+  },
+  "findings": [
+    {
+      "id": "0123456789abcdef",
+      "kind": "violation",
+      "rule_id": "LLM-001",
+      "family": "llm-gov",
+      "severity": "high",
+      "title": "Appel direct à une API LLM",
+      "location": {
+        "path": "app/llm.py",
+        "start_line": 1,
+        "end_line": 1
+      },
+      "occurrences": [
+        {
+          "path": "app/llm.py",
+          "start_line": 1,
+          "end_line": 1
+        }
+      ],
+      "snippet": "from openai import OpenAI",
+      "detector": {
+        "tool": "semgrep",
+        "native_id": "LLM-001",
+        "version": "1.0.0"
+      },
+      "remediation": {
+        "static": "Passer par la passerelle.",
+        "llm": null,
+        "llm_error": null
+      }
+    }
+  ]
+}
