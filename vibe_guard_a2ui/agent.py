@@ -3,13 +3,13 @@
 Conforms to SPEC-AGT-1, SPEC-AGT-2, and SPEC-AGT-3.
 """
 
+import contextlib
 import json
 import logging
 import os
 import time
 import uuid
 from pathlib import Path
-from typing import Any
 
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.tools.tool_context import ToolContext
@@ -84,6 +84,7 @@ def render_scan_form(tool_context: ToolContext | None = None) -> str:
     Returns:
         Greeting text with A2UI v0.9 envelope containing the repository form.
     """
+    _ = tool_context
     greeting = (
         "Welcome to **Vibe Guard**! I am your autonomous AI security auditor for "
         "vibe-coded applications on Google Cloud Platform.\n\n"
@@ -136,9 +137,11 @@ def scan_repository(
     elif not is_deployed:
         caller_id = "gemini_enterprise_user"
 
-    if is_deployed and (not caller_id or caller_id.lower() in ("anonymous", "unauthenticated", "none")):
+    unauth = ("anonymous", "unauthenticated", "none")
+    if is_deployed and (not caller_id or caller_id.lower() in unauth):
         return (
-            "Error 401/403: Unauthenticated caller. Scans cannot be executed without an authenticated caller identity."
+            "Error 401/403: Unauthenticated caller. "
+            "Scans cannot be executed without an authenticated caller identity."
         )
 
     scan_id = str(uuid.uuid4())
@@ -151,10 +154,8 @@ def scan_repository(
     if families:
         valid_family_enums = set()
         for f in families:
-            try:
+            with contextlib.suppress(ValueError):
                 valid_family_enums.add(Family(f.strip()))
-            except ValueError:
-                pass
         if valid_family_enums:
             filtered_rules = [r for r in rule_pack.rules if r.family in valid_family_enums]
             rule_pack = RulePack(
@@ -235,7 +236,8 @@ def scan_repository(
         f"**Duration**: {duration_seconds:.2f}s | **Findings**: {total} total "
         f"(🔴 {crit_count} Critical, 🟠 {high_count} High)\n\n"
         "The interactive security audit dashboard has been opened in your Canvas side-panel. "
-        "Click on any finding card to inspect the code snippet and GCP-native remediation instructions."
+        "Click on any finding card to inspect the code snippet and GCP-native "
+        "remediation instructions."
     )
 
     canvas_envelope = build_dashboard_canvas_surface(report)
@@ -290,7 +292,7 @@ def explain_finding(
         f"**Remediation Steps**:\n"
         + "\n".join(f"{i+1}. {step}" for i, step in enumerate(target_finding.remediation.steps))
         + "\n\n"
-        "Detailed code snippet and remediation guidance have been loaded into the Canvas side-panel."
+        "Detailed code snippet and remediation guidance loaded in the Canvas side-panel."
     )
 
     return f"{explanation_msg}\n\n{wrap_a2ui_payload(detail_envelope['messages'])}"
@@ -307,18 +309,22 @@ def show_dashboard(tool_context: ToolContext | None = None) -> str:
     return f"{msg}\n\n{wrap_a2ui_payload(canvas_envelope['messages'])}"
 
 
-SYSTEM_INSTRUCTION = f"""You are Vibe Guard, an autonomous security auditor for vibe-coded applications on Google Cloud Platform.
-You help engineers identify and remediate security vulnerabilities across AUTH, SECRETS, LLM-GOV, and NET-ISO.
-
-A2UI & GEMINI ENTERPRISE INTERFACE RULES:
-1. When greeted or when the user wants to scan a project, invoke the `render_scan_form` tool.
-2. When the user submits the form or provides a repository URL, invoke `scan_repository`.
-3. When the user asks to explain a finding or clicks an "Inspect & Remediate" button, invoke `explain_finding`.
-4. When the user wants to return to the dashboard, invoke `show_dashboard`.
-5. NEVER fabricate scan metrics or vulnerability counts. All reports must come strictly from `scan_repository`.
-6. Whenever a tool returns an A2UI payload containing `{A2UI_DELIMITER}`, preserve the entire payload unaltered in your response.
-7. Be concise, actionable, and focus on GCP-native security best practices (Secret Manager, Identity-Aware Proxy, VPC Service Controls, Cloud Run ingress).
-"""
+SYSTEM_INSTRUCTION = (
+    "You are Vibe Guard, an autonomous security auditor for vibe-coded applications on GCP.\n"
+    "You help engineers identify and remediate security vulnerabilities across "
+    "AUTH, SECRETS, LLM-GOV, and NET-ISO.\n\n"
+    "A2UI & GEMINI ENTERPRISE INTERFACE RULES:\n"
+    "1. When greeted or when the user wants to scan a project, invoke `render_scan_form`.\n"
+    "2. When the user submits the form or provides a repository URL, invoke `scan_repository`.\n"
+    "3. When the user asks to explain a finding, invoke `explain_finding`.\n"
+    "4. When the user wants to return to the dashboard, invoke `show_dashboard`.\n"
+    "5. NEVER fabricate scan metrics or vulnerability counts. "
+    "All reports must come from `scan_repository`.\n"
+    f"6. Whenever a tool returns an A2UI payload containing `{A2UI_DELIMITER}`, "
+    "preserve the entire payload unaltered in your response.\n"
+    "7. Be concise, actionable, and focus on GCP-native security best practices "
+    "(Secret Manager, Identity-Aware Proxy, VPC Service Controls, Cloud Run ingress).\n"
+)
 
 root_agent = LlmAgent(
     name="VibeGuardAgent",
