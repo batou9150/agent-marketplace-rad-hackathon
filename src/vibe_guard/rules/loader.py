@@ -2,8 +2,9 @@
 
 from pathlib import Path
 from typing import Any
-from pydantic import ValidationError
+
 import yaml
+from pydantic import ValidationError
 
 from vibe_guard.rules.models import Family, PackManifest, RuleDef
 
@@ -86,7 +87,9 @@ def load_rule_pack(rules_dir: Path | str) -> RulePack:
             manifest_data = yaml.safe_load(f)
         manifest = PackManifest.model_validate(manifest_data)
     except ValidationError as exc:
-        errors = [f"{'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}" for err in exc.errors()]
+        errors = [
+            f"{'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}" for err in exc.errors()
+        ]
         raise RuleValidationError(manifest_path, errors) from exc
     except Exception as exc:
         raise RuleValidationError(manifest_path, [str(exc)]) from exc
@@ -118,8 +121,7 @@ def load_rule_pack(rules_dir: Path | str) -> RulePack:
 
         except ValidationError as exc:
             errors = [
-                f"{'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}"
-                for err in exc.errors()
+                f"{'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}" for err in exc.errors()
             ]
             raise RuleValidationError(rule_file, errors) from exc
         except RuleValidationError:

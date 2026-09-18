@@ -1,0 +1,26 @@
+id: NET-ISO-002
+family: NET-ISO
+severity: medium
+title: "Lancement du serveur HTTP lié sur toutes les interfaces (0.0.0.0) en mode développement"
+rationale: "Démarrer un serveur applicatif (ex. Flask run, Uvicorn, Vite) lié sur 0.0.0.0 en mode debug ou sans proxy inverse expose l'interface interne et la console de rechargement à tout le réseau local ou aux conteneurs voisins."
+example: |
+  app.run(host="0.0.0.0", port=5000, debug=True)
+remediation:
+  summary: "Désactiver le mode debug en production et restreindre le binding réseau"
+  gcp_service: "Cloud Run Container Runtime"
+  steps:
+    - "Désactiver impérativement les options 'debug=True' et 'reload=True' pour les déploiements"
+    - "Sur les environnements locaux, lier l'écoute sur '127.0.0.1' ou 'localhost'"
+    - "Sur Cloud Run, s'assurer que seul le port standard défini par la variable d'environnement PORT est exposé"
+  reference_url: "https://cloud.google.com/run/docs/container-contract#port"
+engine:
+  type: semgrep
+  semgrep_rule:
+    id: net-binding-all-interfaces-debug
+    languages: [python]
+    severity: WARNING
+    message: "Serveur web lié sur 0.0.0.0 avec mode debug activé"
+    patterns:
+      - pattern-either:
+          - pattern: $APP.run(..., host="0.0.0.0", ..., debug=True, ...)
+          - pattern: uvicorn.run(..., host="0.0.0.0", ..., reload=True, ...)

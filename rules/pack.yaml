@@ -1,0 +1,16 @@
+version: "0.1.0"
+name: "vibe-guard-core"
+description: "Pack de règles standard pour l'industrialisation des applications vibe-codées"
+families:
+  - id: AUTH
+    name: "Authentication & Access Control"
+    description: "Vérification des mécanismes d'authentification, absence de credentials en clair et intégration IAP"
+  - id: SECRETS
+    name: "Secret & Credential Leakage"
+    description: "Détection des clés d'API IA, tokens sensibles et variables d'environnement exposées"
+  - id: LLM-GOV
+    name: "LLM Governance & Guardrails"
+    description: "Encadrement des appels aux modèles de fondation, timeouts et protection contre les injections"
+  - id: NET-ISO
+    name: "Network Isolation & Hardening"
+    description: "Restriction de l'ingress, durcissement des conteneurs et élimination des ports de débogage"

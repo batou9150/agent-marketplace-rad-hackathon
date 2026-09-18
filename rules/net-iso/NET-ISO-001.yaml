@@ -1,0 +1,28 @@
+id: NET-ISO-001
+family: NET-ISO
+severity: medium
+title: "Configuration d'ingress Cloud Run 'all' autorisant l'accès public direct en Terraform"
+rationale: "Configurer l'ingress Cloud Run à 'all' permet au service de recevoir du trafic provenant directement de l'Internet public en contournant les passerelles d'entreprise, les Load Balancers protégés par Cloud Armor et les politiques réseau VPC."
+example: |
+  metadata {
+    annotations = {
+      "run.googleapis.com/ingress" = "all"
+    }
+  }
+remediation:
+  summary: "Restreindre l'ingress Cloud Run à 'internal-and-cloud-load-balancing'"
+  gcp_service: "Cloud Run & Google Cloud Armor"
+  steps:
+    - "Définir l'annotation 'run.googleapis.com/ingress' à 'internal-and-cloud-load-balancing'"
+    - "Déployer un Cloud Load Balancer (Application Load Balancer) en amont avec des règles de sécurité Cloud Armor"
+    - "Isoler les communications inter-services via un VPC Service Controls et Serverless VPC Access"
+  reference_url: "https://cloud.google.com/run/docs/securing/ingress"
+engine:
+  type: semgrep
+  semgrep_rule:
+    id: net-cloudrun-ingress-all
+    languages: [hcl]
+    severity: WARNING
+    message: "Annotation d'ingress Cloud Run configurée sur 'all' au lieu de 'internal-and-cloud-load-balancing'"
+    patterns:
+      - pattern-regex: '["'']run\.googleapis\.com/ingress["'']\s*=\s*["'']all["'']'

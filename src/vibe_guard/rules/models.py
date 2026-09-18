@@ -1,11 +1,12 @@
 """Data models for Vibe Guard rule pack definitions."""
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Rule severity level."""
 
     CRITICAL = "critical"
@@ -14,7 +15,7 @@ class Severity(str, Enum):
     LOW = "low"
 
 
-class Family(str, Enum):
+class Family(StrEnum):
     """Rule security and governance family."""
 
     AUTH = "AUTH"
@@ -23,7 +24,7 @@ class Family(str, Enum):
     NET_ISO = "NET-ISO"
 
 
-class EngineType(str, Enum):
+class EngineType(StrEnum):
     """Underlying scanner engine type."""
 
     SEMGREP = "semgrep"
@@ -48,7 +49,9 @@ class EngineDef(BaseModel):
 
     type: EngineType = Field(..., description="Engine type: semgrep or gitleaks")
     semgrep_rule: dict[str, Any] | None = Field(default=None, description="Semgrep rule definition")
-    gitleaks_rule: dict[str, Any] | None = Field(default=None, description="Gitleaks rule definition")
+    gitleaks_rule: dict[str, Any] | None = Field(
+        default=None, description="Gitleaks rule definition"
+    )
 
     @model_validator(mode="after")
     def validate_engine_payload(self) -> "EngineDef":

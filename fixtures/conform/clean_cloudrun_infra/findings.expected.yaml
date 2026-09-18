@@ -1,0 +1,3 @@
+fixture_name: "clean_cloudrun_infra"
+description: "Infrastructure Cloud Run durcie, Dockerfile non-root et politique d'ingress interne"
+expected_findings: []

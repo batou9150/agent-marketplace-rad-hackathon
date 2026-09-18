@@ -1,0 +1,32 @@
+id: LLM-GOV-002
+family: LLM-GOV
+severity: medium
+title: "Appel de génération LLM sans configuration de timeout explicite"
+rationale: "Les requêtes de complétion ou d'inférence LLM peuvent subir des latences imprévisibles. L'absence de timeout bloque indéfiniment les workers HTTP du service applicatif, entraînant des attaques par déni de service (DoS) par épuisement de pool de connexions."
+example: |
+  response = client.models.generate_content(
+      model="gemini-1.5-flash",
+      contents=prompt
+  )
+remediation:
+  summary: "Configurer un délai d'attente maximal (timeout) strict sur chaque appel d'inférence LLM"
+  gcp_service: "Vertex AI SDK & Cloud Run Request Timeout"
+  steps:
+    - "Définir un paramètre de timeout explicite (ex. timeout=30.0) sur les requêtes client HTTP ou le SDK Vertex AI"
+    - "Ajuster la durée de timeout du service Cloud Run ('--timeout=60s') en cohérence avec le SLA du modèle"
+    - "Mettre en place une stratégie de reprise avec backoff exponentiel et disjoncteur (circuit breaker)"
+  reference_url: "https://cloud.google.com/run/docs/configuring/request-timeout"
+engine:
+  type: semgrep
+  semgrep_rule:
+    id: llm-call-missing-timeout
+    languages: [python]
+    severity: WARNING
+    message: "Appel de méthode de complétion ou génération LLM sans argument de timeout explicite"
+    patterns:
+      - pattern-either:
+          - pattern: $CLIENT.chat.completions.create(...)
+          - pattern: $CLIENT.models.generate_content(...)
+      - pattern-not: $CLIENT.chat.completions.create(..., timeout=$T, ...)
+      - pattern-not: $CLIENT.models.generate_content(..., timeout=$T, ...)
+      - pattern-not: $CLIENT.models.generate_content(..., config=$CONFIG, ...)

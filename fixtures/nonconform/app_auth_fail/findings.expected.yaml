@@ -1,0 +1,11 @@
+fixture_name: "app_auth_fail"
+description: "Application FastAPI avec route admin non protégée et comparaison naïve de mot de passe"
+expected_findings:
+  - rule_id: "AUTH-001"
+    family: "AUTH"
+    file: "app.py"
+    severity: "high"
+  - rule_id: "AUTH-002"
+    family: "AUTH"
+    file: "app.py"
+    severity: "critical"

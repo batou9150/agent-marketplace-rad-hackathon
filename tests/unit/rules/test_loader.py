@@ -1,6 +1,7 @@
 """Unit tests for rule pack loading and validation."""
 
 from pathlib import Path
+
 import pytest
 import yaml
 
@@ -143,7 +144,7 @@ def test_invalid_rule_schema(tmp_path: Path) -> None:
         "version": "1.0.0",
         "name": "test-pack",
         "description": "Test pack",
-        "families": [{"id": "AUTH", "name": "Auth", "description": "Auth"}],
+        "families": [{"id": "AUTH", "name": "Auth", "description": "Authentication checks"}],
     }
     (tmp_path / "pack.yaml").write_text(yaml.dump(manifest))
 

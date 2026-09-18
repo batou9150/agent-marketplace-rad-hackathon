@@ -1,0 +1,31 @@
+id: LLM-GOV-003
+family: LLM-GOV
+severity: high
+title: "Concaténation directe d'entrées utilisateur non assainies dans un prompt système LLM"
+rationale: "Formater directement des variables utilisateurs dans les instructions système via interpolation de chaîne (f-strings, concaténation +, format()) expose l'application au contournement de consignes et aux attaques par détournement d'intention (Prompt Injection / Jailbreak)."
+example: |
+  system_prompt = f"Tu es un assistant bancaire. Instructions spécifiques: {user_input}"
+remediation:
+  summary: "Séparer strictement les instructions système des messages utilisateurs et filtrer via Model Armor"
+  gcp_service: "Google Cloud Model Armor & Vertex AI Content Moderation"
+  steps:
+    - "Isoler les consignes système immuables dans le rôle 'system' ou le paramètre 'system_instruction' du modèle"
+    - "Passer systématiquement les entrées utilisateur dans les blocs de message avec rôle 'user'"
+    - "Activer les filtres Model Armor (Jailbreak Detection, Sensitive Data Protection) en amont"
+  reference_url: "https://cloud.google.com/security/products/model-armor"
+engine:
+  type: semgrep
+  semgrep_rule:
+    id: llm-prompt-injection-system-interpolation
+    languages: [python]
+    severity: WARNING
+    message: "Interpolation directe d'une variable dynamique dans un prompt système"
+    patterns:
+      - pattern-either:
+          - pattern: |
+              system_prompt = f"...{$INPUT}..."
+          - pattern: |
+              system_instruction = f"...{$INPUT}..."
+          - pattern: |
+              $PROMPT = "..." + $INPUT + "..."
+      - pattern-regex: "(?i)(system_prompt|system_instruction)\\s*="

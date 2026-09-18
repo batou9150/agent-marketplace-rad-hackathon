@@ -1,0 +1,30 @@
+id: LLM-GOV-001
+family: LLM-GOV
+severity: high
+title: "Appel direct non gouverné à une API LLM externe sans passerelle d'entreprise"
+rationale: "Effectuer des appels directs aux endpoints d'IA externes ou instancier des clients OpenAI/Anthropic sans passer par une passerelle d'entreprise empêche la journalisation centrale, l'application de quotas, le filtrage de contenu et l'observabilité."
+example: |
+  client = OpenAI(api_key="sk-...")
+  response = client.chat.completions.create(...)
+remediation:
+  summary: "Acheminer les requêtes LLM via Vertex AI ou une passerelle Agent Gateway avec Model Armor"
+  gcp_service: "Vertex AI / Agent Gateway / Model Armor"
+  steps:
+    - "Remplacer l'appel direct aux APIs tierces par le SDK Google GenAI / Vertex AI"
+    - "Centraliser le routage vers Vertex AI pour bénéficier de l'audit Cloud Logging et de la facturation unifiée"
+    - "Configurer une passerelle Agent Gateway avec les filtres Model Armor pour protéger les flux entrants/sortants"
+  reference_url: "https://cloud.google.com/vertex-ai/docs"
+engine:
+  type: semgrep
+  semgrep_rule:
+    id: llm-direct-external-api-call
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    message: "Instanciation directe de client LLM externe sans passerelle ni endpoint d'entreprise"
+    pattern-either:
+      - pattern: OpenAI(...)
+      - pattern: new OpenAI(...)
+      - pattern: Anthropic(...)
+      - pattern: new Anthropic(...)
+      - pattern: requests.$METHOD("https://api.openai.com/$...", ...)
+      - pattern: fetch("https://api.openai.com/$...", ...)

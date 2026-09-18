@@ -1,0 +1,33 @@
+id: LLM-002
+family: LLM-GOV
+severity: medium
+title: "Appel de modèle LLM sans délai d'expiration (timeout) explicite"
+rationale: "Les requêtes de génération auprès des modèles d'IA générative peuvent subir une forte latence ou rester bloquées indéfiniment lors d'incidents de service. L'absence de timeout explicite expose l'application à un épuisement des workers, des threads et des connexions réseau (Denial of Service)."
+example: |
+  response = client.chat.completions.create(
+      model="gpt-4o",
+      messages=[{"role": "user", "content": prompt}]
+  )
+remediation:
+  summary: "Configurer un délai d'attente maximal strict (timeout) sur tous les appels LLM et SDKs"
+  gcp_service: "Vertex AI SDK & Cloud Run"
+  steps:
+    - "Définir un paramètre timeout explicite (ex: timeout=30.0 secondes) dans l'appel de génération"
+    - "Sur Cloud Run, ajuster le 'request timeout' du conteneur pour borner la durée totale des requêtes"
+    - "Mettre en place une stratégie de reprise (exponential backoff et circuit breaker) en cas d'expiration"
+  reference_url: "https://cloud.google.com/vertex-ai/docs/reference/rest"
+engine:
+  type: semgrep
+  semgrep_rule:
+    id: llm-call-without-timeout
+    message: "Appel de modèle de langage sans paramètre de timeout explicite"
+    languages: [python]
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: $CLIENT.chat.completions.create(...)
+          - pattern: $CLIENT.completions.create(...)
+          - pattern: $CLIENT.messages.create(...)
+      - pattern-not: $CLIENT.chat.completions.create(..., timeout=$TIMEOUT, ...)
+      - pattern-not: $CLIENT.completions.create(..., timeout=$TIMEOUT, ...)
+      - pattern-not: $CLIENT.messages.create(..., timeout=$TIMEOUT, ...)

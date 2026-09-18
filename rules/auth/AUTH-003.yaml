@@ -1,0 +1,43 @@
+id: AUTH-003
+family: AUTH
+severity: high
+title: "Service Cloud Run exposé publiquement sans restriction IAM/IAP en Terraform"
+rationale: "Définir l'accès à Cloud Run avec le rôle 'roles/run.invoker' accordé à 'allUsers' expose le service à l'ensemble d'Internet sans contrôle d'identité, court-circuitant toute politique de sécurité Zero Trust."
+example: |
+  resource "google_cloud_run_service_iam_member" "public_access" {
+    service  = google_cloud_run_service.default.name
+    location = google_cloud_run_service.default.location
+    role     = "roles/run.invoker"
+    member   = "allUsers"
+  }
+remediation:
+  summary: "Supprimer l'accès allUsers et restreindre l'invocation via Cloud IAM ou Identity-Aware Proxy (IAP)"
+  gcp_service: "Cloud Run & Identity-Aware Proxy (IAP)"
+  steps:
+    - "Supprimer la liaison IAM accordant roles/run.invoker à 'allUsers' ou 'allAuthenticatedUsers'"
+    - "Pour un accès utilisateur, déployer un Load Balancer HTTPS externe avec IAP activé et accorder roles/iap.httpsResourceAccessor"
+    - "Pour un accès machine-à-machine (A2A), accorder roles/run.invoker uniquement aux comptes de service appelants authentifiés par jeton OIDC"
+  reference_url: "https://cloud.google.com/run/docs/authenticating/overview"
+engine:
+  type: semgrep
+  semgrep_rule:
+    id: auth-terraform-cloudrun-public-iam
+    message: "Attribution du rôle roles/run.invoker à allUsers sur un service Cloud Run"
+    languages: [terraform]
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: |
+              resource "google_cloud_run_service_iam_member" "$RES" {
+                ...
+                role = "roles/run.invoker"
+                member = "allUsers"
+                ...
+              }
+          - pattern: |
+              resource "google_cloud_run_service_iam_binding" "$RES" {
+                ...
+                role = "roles/run.invoker"
+                members = [..., "allUsers", ...]
+                ...
+              }

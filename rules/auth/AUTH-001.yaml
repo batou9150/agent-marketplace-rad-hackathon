@@ -1,0 +1,42 @@
+id: AUTH-001
+family: AUTH
+severity: high
+title: "Route applicative exposée sans contrôle d'accès ou authentification"
+rationale: "Les prototypes vibe-codés omettent fréquemment les dépendances d'authentification sur les routes d'API, permettant à des tiers anonymes d'accéder à des opérations sensibles ou de modifier des données métier."
+example: |
+  @app.post("/admin/settings")
+  def update_settings(payload: dict):
+      return save_settings(payload)
+remediation:
+  summary: "Protéger la route via Cloud IAP ou un middleware de vérification d'identité"
+  gcp_service: "Identity-Aware Proxy (IAP)"
+  steps:
+    - "Activer Cloud IAP (Identity-Aware Proxy) devant le service Cloud Run pour gérer l'authentification centralisée"
+    - "Valider le jeton JWT transmis dans l'en-tête 'X-Goog-IAP-JWT-Assertion'"
+    - "Déclarer une dépendance de sécurité FastAPI (ex. Depends(get_current_user)) ou un décorateur Flask @login_required"
+  reference_url: "https://cloud.google.com/iap/docs/concepts-overview"
+engine:
+  type: semgrep
+  semgrep_rule:
+    id: auth-unprotected-endpoint
+    languages: [python]
+    severity: WARNING
+    message: "Route administrative ou sensible exposée sans dépendance d'authentification explicite"
+    patterns:
+      - pattern-either:
+          - pattern: |
+              @$APP.post("/admin/$...", ...)
+              def $FUNC(...):
+                  ...
+          - pattern: |
+              @$APP.delete("/$...", ...)
+              def $FUNC(...):
+                  ...
+      - pattern-not: |
+          @$APP.post("/admin/$...", ..., dependencies=$DEPS, ...)
+          def $FUNC(...):
+              ...
+      - pattern-not: |
+          @$APP.delete("/$...", ..., dependencies=$DEPS, ...)
+          def $FUNC(...):
+              ...

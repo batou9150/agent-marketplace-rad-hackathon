@@ -1,0 +1,31 @@
+id: LLM-003
+family: LLM-GOV
+severity: high
+title: "Concaténation directe d'entrées non assainies dans un prompt système (Prompt Injection)"
+rationale: "L'interpolation ou concaténation directe d'entrées utilisateur dans les instructions système d'un LLM permet à un attaquant de modifier le comportement du modèle, d'outrepasser les consignes de sécurité (jailbreak) ou d'extraire des données confidentielles."
+example: |
+  messages = [
+      {"role": "system", "content": f"Tu es un assistant bancaire. Contexte: {user_input}"},
+      {"role": "user", "content": "Effectue le virement"}
+  ]
+remediation:
+  summary: "Séparer strictement les instructions système et les données utilisateur, et appliquer Model Armor"
+  gcp_service: "Google Cloud Model Armor & Vertex AI"
+  steps:
+    - "Ne jamais concaténer d'entrées utilisateur dans le message système ('system' role ou system_instruction)"
+    - "Transmettre les entrées utilisateur exclusivement dans le message 'user' ou dans des blocs de données clairement délimités"
+    - "Activer Google Cloud Model Armor sur la passerelle d'appels pour filtrer les attaques de type prompt injection et jailbreak"
+  reference_url: "https://cloud.google.com/vertex-ai/generative-ai/docs/model-armor/overview"
+engine:
+  type: semgrep
+  semgrep_rule:
+    id: llm-prompt-injection-system
+    message: "Concaténation directe de variables utilisateur dans un message système"
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: '{"role": "system", "content": f"...{$VAR}..."}'
+          - pattern: '{"role": "system", "content": $STR + $VAR}'
+          - pattern: '{"role": "system", "content": $STR % $VAR}'
+          - pattern: '{"role": "system", "content": $STR.format(..., $VAR, ...)}'

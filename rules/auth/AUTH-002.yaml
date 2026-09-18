@@ -1,0 +1,32 @@
+id: AUTH-002
+family: AUTH
+severity: critical
+title: "Comparaison naïve de mot de passe en clair sujette aux attaques temporelles"
+rationale: "La comparaison directe de secrets ou mots de passe avec les opérateurs d'égalité standards (==, !=) fuit de l'information par canal auxiliaire temporel (timing attack) et stocke/traite des mots de passe en clair."
+example: |
+  if user.password == provided_password:
+      return login_success()
+remediation:
+  summary: "Déléguer l'authentification à Cloud Identity / Firebase Auth ou utiliser un hachage cryptographique résistant"
+  gcp_service: "Google Cloud Identity / Firebase Authentication"
+  steps:
+    - "Migrer la gestion des identités vers Firebase Authentication ou Google Cloud Identity Platform"
+    - "Pour la vérification locale de tokens ou signatures, utiliser 'secrets.compare_digest' ou 'hmac.compare_digest' à temps constant"
+    - "Hacher systématiquement les secrets avec Argon2id ou bcrypt avant toute comparaison"
+  reference_url: "https://cloud.google.com/identity-platform/docs"
+engine:
+  type: semgrep
+  semgrep_rule:
+    id: auth-plaintext-password-comparison
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: "Comparaison directe de mot de passe ou secret sans algorithme à temps constant ni hachage sécurisé"
+    pattern-either:
+      - pattern: |
+          if $X.password == $Y: ...
+      - pattern: |
+          if $PASSWORD == $INPUT: ...
+      - pattern: |
+          if ($X.password === $Y) { ... }
+      - pattern: |
+          if ($PASSWORD === $INPUT) { ... }

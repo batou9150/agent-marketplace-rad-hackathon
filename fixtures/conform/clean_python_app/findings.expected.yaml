@@ -1,0 +1,3 @@
+fixture_name: "clean_python_app"
+description: "Application FastAPI propre et conforme aux règles AUTH, SECRETS, LLM-GOV et NET-ISO"
+expected_findings: []

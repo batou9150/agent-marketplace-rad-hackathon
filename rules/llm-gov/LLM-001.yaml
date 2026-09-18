@@ -1,0 +1,25 @@
+id: LLM-001
+family: LLM-GOV
+severity: high
+title: "Appel direct à une API LLM publique sans passerelle ni proxy de sécurité"
+rationale: "Effectuer des appels directs aux endpoints d'API des fournisseurs LLM (ex: api.openai.com, api.anthropic.com, generativelanguage.googleapis.com) depuis le code applicatif contourne les politiques d'inspection de contenu, d'audit des tokens, de quota et les filtres de sécurité d'entreprise tels que Google Cloud Model Armor."
+example: |
+  import requests
+  response = requests.post("https://api.openai.com/v1/chat/completions", json=payload)
+remediation:
+  summary: "Router les requêtes LLM via Google Cloud Vertex AI et Agent Gateway avec Model Armor"
+  gcp_service: "Vertex AI & Google Cloud Model Armor"
+  steps:
+    - "Migrer vers les API Vertex AI hébergées sur Google Cloud au lieu d'appeler directement des endpoints publics tiers"
+    - "Déployer une Agent Gateway Google Cloud avec Model Armor (CONTENT_AUTHZ) activé pour inspecter les entrées/sorties"
+    - "Activer les filtres de protection contre le jailbreak et la détection de fuites de données sensibles (SDP)"
+  reference_url: "https://cloud.google.com/vertex-ai/generative-ai/docs/model-armor/overview"
+engine:
+  type: semgrep
+  semgrep_rule:
+    id: llm-direct-public-endpoint
+    message: "Appel direct à un endpoint d'API LLM public non gouverné"
+    languages: [python, javascript, typescript]
+    severity: WARNING
+    patterns:
+      - pattern-regex: 'https://(api\.openai\.com|generativelanguage\.googleapis\.com|api\.anthropic\.com)'
