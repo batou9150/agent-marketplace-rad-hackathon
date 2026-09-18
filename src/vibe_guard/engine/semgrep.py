@@ -18,6 +18,16 @@ from vibe_guard.rules.loader import RulePack
 
 logger = logging.getLogger(__name__)
 
+# Environment variables semgrep-core interprets as paths; an empty value in any of
+# them is fatal, so they are dropped rather than forwarded (SPEC-ENG-7).
+_SEMGREP_PATH_ENV_VARS = (
+    "HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_CACHE_HOME",
+    "SEMGREP_SETTINGS_FILE",
+    "SEMGREP_VERSION_CACHE_PATH",
+)
+
 
 def _find_semgrep_binary() -> str:
     """Find the semgrep executable in env, virtualenv or PATH (SPEC-ENG-7)."""
@@ -90,8 +100,19 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
         ]
 
         env = dict(os.environ)
+
+        # semgrep-core reads these as filesystem paths and aborts the whole scan
+        # with Invalid_argument("": invalid path) when one is present but empty,
+        # which is how a managed runtime can hand them over. Unset beats empty.
+        dropped = [var for var in _SEMGREP_PATH_ENV_VARS if var in env and not env[var]]
+        for var in dropped:
+            del env[var]
+        if dropped:
+            logger.info("Dropped empty Semgrep path variables: %s", ", ".join(dropped))
+
         env["HOME"] = str(config_path.parent)
         env["SEMGREP_SETTINGS_FILE"] = str(config_path.parent / ".semgrep_settings.yml")
+        env["SEMGREP_VERSION_CACHE_PATH"] = str(config_path.parent / ".semgrep_version_cache")
 
         timeout = int(os.environ.get("VIBE_GUARD_SEMGREP_TIMEOUT", "180"))
         result = subprocess.run(
