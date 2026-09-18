@@ -32,3 +32,11 @@ uv run pytest tests/unit -v
 uv run ruff check .
 uv run ruff format .
 ```
+
+## Documentation
+
+- [Stratégie Marketing & Commercialisation GCP Marketplace](docs/strategie-marketing-gcp-marketplace.md)
+- [Format du pack de règles](docs/rule-pack-format.md)
+- [Décisions d'architecture (ADR)](docs/adr/)
+- [Plan d'implémentation](plan-implementation-agent-vibe-coding.md)
+
