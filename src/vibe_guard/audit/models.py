@@ -1,23 +1,23 @@
 """Data models for audit trails and scan traceability (Constraint C6)."""
 
-from datetime import datetime, timezone
-from typing import Any
 import uuid
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ScanAuditRecord(BaseModel):
     """Immutable audit record generated for each repository scan execution.
 
-    Never stores raw source code snippets to protect intellectual property and confidentiality (Constraint C2 & C6).
+    Never stores raw source code snippets to protect intellectual property
+    and confidentiality (Constraint C2 & C6).
     """
 
     model_config = ConfigDict(extra="forbid")
 
     scan_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     caller_id: str = Field(default="anonymous", description="Authenticated caller identifier")
     pack_version: str = Field(..., description="Vibe Guard rule pack version")
     rules_evaluated: list[str] = Field(..., description="List of evaluated rule IDs")
