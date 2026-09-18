@@ -2,7 +2,7 @@
 
 **Date** : 18 septembre 2026  
 **Objet** : Lancement commercial de **Vibe Guard** — Industrialisation du Vibe Coding & Monétisation Google Cloud Marketplace  
-**Émetteurs** : CTO et ED / Direction des Alliances & Partenariats  
+**Émetteurs** : CTO et ED (Engineering Directors) / Direction des Alliances & Partenariats  
 **Destinataires** : Membres du Comité Exécutif (COMEX) SFEIR  
 **Statut** : Document d'arbitrage et de décision stratégique  
 
@@ -138,7 +138,7 @@ Il est demandé aux membres du COMEX de valider :
 
 1. **Validation du Lancement Commercial** : Approbation de la commercialisation de l'offre *Vibe Coding Security Assessment* et de son référencement au catalogue des offres d'appel SFEIR.
 2. **Autorisation de Distribution sur Google Cloud Marketplace** : Mandat pour finaliser l'inscription de Vibe Guard en tant que solution éligible aux *Customer Partner Private Offers* (CPPO) sous l'entité éditeur SFEIR.
-3. **Plan d'Enablement Interne** : Organisation d'une session de formation de 2 heures dédiée aux Sales, CTO et ED au cours du mois d'octobre 2026.
+3. **Plan d'Enablement Interne** : Organisation d'une session de formation de 2 heures dédiée aux Sales, CTO et ED (Engineering Directors) au cours du mois d'octobre 2026.
 
 ---
 

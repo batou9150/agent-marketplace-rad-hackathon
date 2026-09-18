@@ -1,7 +1,7 @@
 # Offre SFEIR : Vibe Coding Security Assessment
 
 **Format** : One-Pager Commercial / Fiche Offre Partenaire  
-**Destinataires** : Sales, CTO, ED & Consultants SFEIR  
+**Destinataires** : Sales, CTO, ED (Engineering Directors) & Consultants SFEIR  
 **Objectif Commercial** : Déclencher des missions d'audit d'industrialisation (2 à 3 jours) chez les clients grands comptes et convertir vers un contrat annuel Vibe Guard sur Google Cloud Marketplace (CPPO).
 
 ---
@@ -58,4 +58,4 @@ flowchart LR
 * Les équipes SRE / Plateforme se plaignent d'applications non gouvernées tournant sur des comptes GCP hors standards.
 * Le client a des crédits d'engagements Google Cloud à consommer avant la fin de l'exercice fiscal.
 
-**Contact Référent SFEIR** : CTO & ED — `vibe-guard-team@sfeir.com`
+**Contact Référent SFEIR** : CTO & ED (Engineering Directors) — `vibe-guard-team@sfeir.com`
