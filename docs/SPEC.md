@@ -207,10 +207,10 @@ Colonne *Statut* : ✅ implémenté et couvert par un test vert au 2026-09-18 ·
 | SPEC-ING-1 | Le système DOIT accepter trois types de source : dépôt Git HTTPS (clone `--depth 1`), archive `.zip`/`.tar.gz`/`.tgz`/`.tar`, répertoire local. | Un scan aboutit pour chacun des trois types. | ⚠️ |
 | SPEC-ING-2 | Le répertoire de travail DOIT être unique par scan et purgé en sortie, y compris sur exception. | Test dédié vérifiant l'absence du chemin après sortie normale **et** après exception. | ✅ |
 | SPEC-ING-3 | Les limites §3.2 DOIVENT être appliquées **avant** le lancement des scanners, et lors de l'extraction pour les archives. | Une archive de 6 000 fichiers échoue en `IngestionError` sans qu'aucun scanner ne démarre. | ⚠️ |
-| SPEC-ING-4 | L'extraction DOIT rejeter toute entrée sortant du répertoire de travail (traversée de chemin), en utilisant une comparaison de chemins (`Path.is_relative_to`) et non une comparaison de préfixe de chaîne. | Fixture d'archive malveillante (`../../etc/passwd`) rejetée ; test de non-régression sur le cas frère (`/tmp/ws` vs `/tmp/ws-evil`). | ⚠️ |
-| SPEC-ING-5 | L'extraction DOIT refuser les membres qui ne sont pas des fichiers réguliers ou des répertoires : liens symboliques, liens durs, périphériques, FIFO. L'extraction tar DOIT utiliser `filter="data"`. | Fixture d'archive contenant un symlink : rejet explicite, aucun lien créé. | ⛔ |
-| SPEC-ING-6 | Le clone Git DOIT être non interactif et non récursif : `GIT_TERMINAL_PROMPT=0`, `--no-recurse-submodules`, `core.hooksPath` neutralisé, protocoles limités à `https`. | Un dépôt avec sous-module ne déclenche aucun fetch supplémentaire ; un dépôt demandant des identifiants échoue en `IngestionError` sans blocage. | ⛔ |
-| SPEC-ING-7 | Un jeton d'accès DOIT NE PAS apparaître dans `argv`, dans l'URL du remote, ni dans un message d'erreur ou de log. Il est transmis par en-tête ou credential helper, depuis une **référence** Secret Manager. | `ps` pendant un clone authentifié ne révèle aucun secret ; les messages d'erreur sont masqués (test). | ⛔ |
+| SPEC-ING-4 | L'extraction DOIT rejeter toute entrée sortant du répertoire de travail (traversée de chemin), en utilisant une comparaison de chemins (`Path.is_relative_to`) et non une comparaison de préfixe de chaîne. | Fixture d'archive malveillante (`../../etc/passwd`) rejetée ; test de non-régression sur le cas frère (`/tmp/ws` vs `/tmp/ws-evil`). | ✅ |
+| SPEC-ING-5 | L'extraction DOIT refuser les membres qui ne sont pas des fichiers réguliers ou des répertoires : liens symboliques, liens durs, périphériques, FIFO. L'extraction tar DOIT utiliser `filter="data"`. | Fixture d'archive contenant un symlink : rejet explicite, aucun lien créé. | ✅ |
+| SPEC-ING-6 | Le clone Git DOIT être non interactif et non récursif : `GIT_TERMINAL_PROMPT=0`, `--no-recurse-submodules`, `core.hooksPath` neutralisé, protocoles limités à `https`. | Un dépôt avec sous-module ne déclenche aucun fetch supplémentaire ; un dépôt demandant des identifiants échoue en `IngestionError` sans blocage. | ✅ |
+| SPEC-ING-7 | Un jeton d'accès DOIT NE PAS apparaître dans `argv`, dans l'URL du remote, ni dans un message d'erreur ou de log. Il est transmis par en-tête ou credential helper, depuis une **référence** Secret Manager. | `ps` pendant un clone authentifié ne révèle aucun secret ; les messages d'erreur sont masqués (test). | ✅ |
 | SPEC-ING-8 | Le répertoire `.git` du dépôt cloné DOIT être exclu de l'analyse Semgrep ; il PEUT rester disponible pour l'analyse d'historique par gitleaks. | Aucun finding Semgrep dont le chemin commence par `.git/`. | ⚠️ |
 
 ### 5.2 Référentiel de règles (`RUL`)
@@ -232,10 +232,10 @@ Colonne *Statut* : ✅ implémenté et couvert par un test vert au 2026-09-18 ·
 | SPEC-ENG-1 | Le moteur DOIT exécuter Semgrep OSS avec les règles `type: semgrep` du pack et gitleaks pour les règles `type: gitleaks`, puis normaliser les sorties en `Finding`. | Scan d'une fixture mixte : findings des deux moteurs présents et normalisés. | ✅ |
 | SPEC-ENG-2 | Chaque `Finding` DOIT hériter du pack : `severity`, `family`, `title`, remédiation statique. Aucune sévérité ne PEUT provenir de l'outil sous-jacent. | Sévérité du finding == sévérité de la règle, pour toutes les fixtures. | ✅ |
 | SPEC-ENG-3 | L'échec d'un scanner (binaire absent, timeout, sortie illisible) DOIT NE PAS interrompre le scan. | Simulation d'absence de binaire : le scan aboutit. | ✅ |
-| SPEC-ENG-4 | L'échec d'un scanner DOIT être remonté dans `report.engine_status` avec la ou les familles dont la couverture est dégradée, et le rapport DOIT NE PAS pouvoir être interprété comme « conforme ». | gitleaks absent → `engine_status.gitleaks.status == "error"`, `coverage_degraded == ["SECRETS"]`, code de sortie CLI `3`. | ⛔ **défaut identifié** : aujourd'hui l'erreur d'outil est filtrée au moment de la construction du rapport et disparaît. |
+| SPEC-ENG-4 | L'échec d'un scanner DOIT être remonté dans `report.engine_status` avec la ou les familles dont la couverture est dégradée, et le rapport DOIT NE PAS pouvoir être interprété comme « conforme ». | gitleaks absent → `engine_status.gitleaks.status == "error"`, `coverage_degraded == ["SECRETS"]`, code de sortie CLI `3`. | ✅ |
 | SPEC-ENG-5 | L'extrait attaché à un finding DOIT être borné : ±4 lignes autour de la ligne détectée, ≤ 1 500 caractères, troncature explicitement marquée. | Aucun `snippet.content` > 1 500 caractères hors marqueur ; borne testée. | ✅ |
 | SPEC-ENG-6 | La détection DOIT être déterministe : deux scans du même code produisent des findings identiques hors champs générés par LLM. | Test de déterminisme sur fixtures. | ✅ |
-| SPEC-ENG-7 | Les seuls sous-processus autorisés sont `semgrep`, `gitleaks` et `git`, invoqués avec timeout et sans shell. Leur chemin DOIT provenir d'une variable de configuration (`VIBE_GUARD_<TOOL>_BIN`) ou du `PATH` ; il DOIT NE PAS être codé en dur sur un chemin de poste de développement. | Revue + absence de `shell=True` et de chemin absolu littéral dans le code (contrôle CI). | ⚠️ **écart** : `gitleaks` est cherché d'abord dans `/opt/homebrew/bin` puis `/usr/local/bin`. |
+| SPEC-ENG-7 | Les seuls sous-processus autorisés sont `semgrep`, `gitleaks` et `git`, invoqués avec timeout et sans shell. Leur chemin DOIT provenir d'une variable de configuration (`VIBE_GUARD_<TOOL>_BIN`) ou du `PATH` ; il DOIT NE PAS être codé en dur sur un chemin de poste de développement. | Revue + absence de `shell=True` et de chemin absolu littéral dans le code (contrôle CI). | ✅ |
 | SPEC-ENG-8 | Les timeouts DOIVENT être explicites : Semgrep 180 s, gitleaks 120 s, clone Git 120 s (valeurs V1, configurables). | Valeurs présentes et testées par simulation de dépassement. | ⚠️ |
 
 ### 5.4 Remédiation (`REM`)
@@ -257,8 +257,8 @@ Colonne *Statut* : ✅ implémenté et couvert par un test vert au 2026-09-18 ·
 | SPEC-REP-2 | Les findings DOIVENT être triés par sévérité décroissante, puis famille, fichier, ligne. | Test d'ordre sur fixture multi-familles. | ✅ |
 | SPEC-REP-3 | Le résumé DOIT compter les findings par sévérité et par famille, et ces totaux DOIVENT être cohérents avec la liste. | `sum(by_severity.values()) == total_findings == len(findings)`. | ⚠️ |
 | SPEC-REP-4 | Le rendu Markdown DOIT être produit à partir du même objet `Report` que le JSON — aucune donnée présente dans l'un et absente de l'autre. | Test comparant les deux rendus sur une fixture. | ⚠️ |
-| SPEC-REP-5 | Le rapport DOIT NE PAS contenir la valeur d'un secret détecté : seule sa localisation, son type et une empreinte tronquée sont publiés. | Test : fixture `app_secrets_leak` scannée, aucune valeur de clé présente dans le JSON ni dans le Markdown. | ⛔ **défaut confirmé** (§11.2) : la clé et le token de la fixture apparaissent en clair dans les deux rendus. |
-| SPEC-REP-6 | Le rapport DOIT porter un bloc `engine_status` déclarant, pour chaque scanner, son statut, sa version et les familles couvertes ou dégradées. | Voir `SPEC-ENG-4`. | ⛔ |
+| SPEC-REP-5 | Le rapport DOIT NE PAS contenir la valeur d'un secret détecté : seule sa localisation, son type et une empreinte tronquée sont publiés. | Test : fixture `app_secrets_leak` scannée, aucune valeur de clé présente dans le JSON ni dans le Markdown. | ✅ |
+| SPEC-REP-6 | Le rapport DOIT porter un bloc `engine_status` déclarant, pour chaque scanner, son statut, sa version et les familles couvertes ou dégradées. | Voir `SPEC-ENG-4`. | ✅ |
 | SPEC-REP-7 | Le rapport DOIT NE PAS contenir de chemin absolu de l'hôte : tous les chemins sont relatifs à la racine scannée. | Aucun `file_path` commençant par `/` ni contenant le préfixe du workspace. | ⚠️ |
 
 ### 5.6 Audit (`AUD`)
@@ -410,27 +410,25 @@ Base : dépôt `antigravity`, commit `1cd2e04`, exécution locale.
 
 | Module | Présent | Remarque |
 |---|---|---|
-| `ingest/workspace.py` | oui | limites, zip-slip par comparaison de préfixe, clone shallow avec token en URL |
+| `ingest/workspace.py` | oui | limites, traversée via `is_relative_to`, rejet symlinks/devices, clone sécurisé sans fuite de token |
 | `rules/` (loader + modèles) | oui | validation Pydantic `extra="forbid"`, 12 règles chargées |
-| `engine/` (semgrep, gitleaks, snippet, scanner) | oui | timeouts 180 s / 120 s, extrait ±4 lignes / 1 500 car. |
-| `report/` (modèles, builder, renderer) | oui | JSON + Markdown, déduplication contiguë |
+| `engine/` (semgrep, gitleaks, snippet, scanner) | oui | timeouts 180 s / 120 s, extrait ±4 lignes / 1 500 car., binaires via env/PATH |
+| `report/` (modèles, builder, renderer, masking) | oui | JSON + Markdown, déduplication contiguë, masquage secrets, engine_status complet |
 | `remediation/` (generator + prompt v1) | oui | repli statique sur échec LLM |
 | `audit/` (record + recorder) | oui | pas encore de `caller_id` authentifié |
 | `agent/` | **non** | uniquement un `__init__.py` documentaire |
 | CLI | **non** | aucun point d'entrée `vibe-guard` |
 | `deploy/` (Dockerfile, Cloud Run) | **non** | absent du dépôt |
 
-**Écarts identifiés à traiter en priorité** (par ordre de gravité) :
+**Statut des 7 écarts prioritaires au 2026-09-18** :
 
-1. **`SPEC-ENG-4` / `SPEC-REP-6`** — les findings `tool_error` sont filtrés lors de la construction du rapport (`deduplicate_findings`, `src/vibe_guard/report/builder.py:24`). **Mesuré** : scan de `fixtures/nonconform/app_secrets_leak` avec `_find_gitleaks_binary` neutralisé → findings bruts `['SECRETS-003', 'TOOL-ERR-GITLEAKS', 'SECRETS-002']`, rapport publié `total_findings=2`, `"TOOL-ERR" in report.to_json() == False`. La clé OpenAI en clair (`SECRETS-001`, sévérité `critical`) disparaît et rien ne signale la dégradation. C'est le défaut le plus grave de l'état actuel : un rapport faussement rassurant est pire qu'une absence de rapport.
-2. **`SPEC-REP-5`** — **mesuré** : sur la même fixture, `sk-proj-abc1234567890abcdef1234567890abcdef` et `super-secret-token-12345` sont présents en clair dans le JSON **et** dans le Markdown, via l'extrait borné. Un rapport destiné à circuler par courriel ou ticket redistribue donc les secrets qu'il dénonce.
-3. **`SPEC-OPS-1` / `SPEC-ENG-7`** — `gitleaks` n'est ni déclaré dans `pyproject.toml`, ni packagé. Il est résolu par les chemins codés en dur `/opt/homebrew/bin/gitleaks` puis `/usr/local/bin/gitleaks`, sinon par `PATH` (`src/vibe_guard/engine/gitleaks.py:15-20`). Le corpus passe sur le poste de développement parce que le binaire y est installé ; en CI ou en conteneur, la couverture `SECRETS` disparaît — et le point 1 la rend invisible.
-4. **`SPEC-ING-7`** — le jeton d'accès est injecté dans l'URL passée à `git clone`, donc visible dans la table des processus.
-5. **`SPEC-ING-5`** — aucun filtrage des membres d'archive de type lien symbolique ; `extractall` sans `filter="data"`.
-6. **`SPEC-ING-4`** — contrôle de traversée par `str.startswith` plutôt que par comparaison de chemins.
-7. **`SPEC-OPS-7`** — `docs/architecture.md` annonce un extrait de ±5 lignes ; le code en produit ±4.
-
-Ces sept points sont des exigences de la présente spec, pas des améliorations optionnelles.
+1. **`SPEC-ENG-4` / `SPEC-REP-6`** : ✅ **Résolu**. Modèles `ScannerStatus` et `EngineStatus` implémentés dans `report.engine_status`. Tout échec de scanner (ex. `TOOL-ERR-GITLEAKS`) bascule le scanner en statut `error`, renseigne `degraded_families`, peuple `coverage_degraded`, et génère un bandeau d'avertissement explicite en tête de rapport Markdown empêchant toute déclaration de conformité. Couvert par `test_engine_status_and_tool_error_degradation` et `test_spec_eng_4_and_rep_6_tool_error_engine_status`.
+2. **`SPEC-REP-5`** : ✅ **Résolu**. Module `src/vibe_guard/report/masking.py` implémenté. Tous les secrets détectés (OpenAI `sk-...`, clés GCP `AIza...`, tokens GitHub `ghp_...`, assignations `.env` et `ENV` Dockerfile) sont systématiquement masqués en empreintes tronquées (`sk-pr...[MASQUÉ]`) dans les messages et snippets de code du rapport JSON et Markdown. Couvert par `test_spec_rep_5_secrets_redacted_in_json_and_markdown` sur la fixture `app_secrets_leak`.
+3. **`SPEC-OPS-1` / `SPEC-ENG-7`** : ✅ **Résolu**. Chemins codés en dur `/opt/homebrew` et `/usr/local` supprimés. Résolution configurable via `VIBE_GUARD_GITLEAKS_BIN` et `VIBE_GUARD_SEMGREP_BIN`, avec repli propre sur `PATH`. Couvert par `test_spec_eng_7_binary_env_override`.
+4. **`SPEC-ING-7`** : ✅ **Résolu**. `clone_git` n'injecte plus le token dans l'URL ni dans `argv`. Authentification déléguée à un credential helper / script éphémère `GIT_ASKPASS` supprimé dès la fin du clone, `GIT_TERMINAL_PROMPT=0`, et masquage strict des tokens en cas d'erreur de `stderr`. Couvert par `test_spec_ing_7_git_clone_token_not_in_argv_or_url` et `test_spec_ing_7_git_clone_error_masks_token`.
+5. **`SPEC-ING-5`** : ✅ **Résolu**. Rejet explicite en `IngestionError` des symlinks, hardlinks, fifos et devices dans les archives `.zip` et `.tar.gz`, et utilisation du filtre `filter="data"` sur `tarfile.extractall`. Couvert par `test_spec_ing_5_zip_symlink_rejected`, `test_spec_ing_5_tar_symlink_rejected` et `test_spec_ing_5_tar_hardlink_rejected`.
+6. **`SPEC-ING-4`** : ✅ **Résolu**. Contrôle de traversée de chemin systématiquement effectué via `Path.is_relative_to(self.path)` sur `.resolve()`, immunisant contre les attaques de type préfixe sibling (`/tmp/ws-evil`). Couvert par `test_spec_ing_4_path_traversal_sibling_rejected`.
+7. **`SPEC-OPS-7`** : ✅ **Résolu**. Cohérence documentaire rétablie dans `docs/architecture.md` à ±4 lignes (conforme au code et à C2). Couvert par commit `7061f9f`.
 
 ---
 
