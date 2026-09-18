@@ -23,20 +23,14 @@ engine:
     severity: WARNING
     message: "Route administrative ou sensible exposée sans dépendance d'authentification explicite"
     patterns:
-      - pattern-either:
-          - pattern: |
-              @$APP.post("/admin/$...", ...)
-              def $FUNC(...):
-                  ...
-          - pattern: |
-              @$APP.delete("/$...", ...)
-              def $FUNC(...):
-                  ...
-      - pattern-not: |
-          @$APP.post("/admin/$...", ..., dependencies=$DEPS, ...)
+      - pattern: |
+          @$APP.$METHOD($PATH, ...)
           def $FUNC(...):
               ...
+      - metavariable-regex:
+          metavariable: $PATH
+          regex: ".*(/admin|/api/admin).*"
       - pattern-not: |
-          @$APP.delete("/$...", ..., dependencies=$DEPS, ...)
+          @$APP.$METHOD($PATH, ..., dependencies=$DEPS, ...)
           def $FUNC(...):
               ...

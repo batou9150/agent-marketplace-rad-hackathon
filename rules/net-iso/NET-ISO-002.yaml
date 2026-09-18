@@ -1,26 +1,29 @@
 id: NET-ISO-002
 family: NET-ISO
 severity: medium
-title: "Lancement du serveur HTTP lié sur toutes les interfaces (0.0.0.0) en mode développement"
-rationale: "Démarrer un serveur applicatif (ex. Flask run, Uvicorn, Vite) lié sur 0.0.0.0 en mode debug ou sans proxy inverse expose l'interface interne et la console de rechargement à tout le réseau local ou aux conteneurs voisins."
+title: "Serveur applicatif exposé sur toutes les interfaces (0.0.0.0) avec mode debug activé"
+rationale: "Lier un serveur Web sur 0.0.0.0 tout en activant le mode debug ou le rechargement automatique expose des consoles de débogage interactives (ex: Werkzeug debugger sur Flask/Werkzeug) permettant l'exécution arbitraire de commandes à distance (RCE) par n'importe quel client du réseau."
 example: |
-  app.run(host="0.0.0.0", port=5000, debug=True)
+  if __name__ == "__main__":
+      app.run(host="0.0.0.0", port=5000, debug=True)
 remediation:
-  summary: "Désactiver le mode debug en production et restreindre le binding réseau"
-  gcp_service: "Cloud Run Container Runtime"
+  summary: "Désactiver le mode debug en production et déléguer la gestion du port et de l'isolation à Cloud Run"
+  gcp_service: "Cloud Run & Google Cloud Armor"
   steps:
-    - "Désactiver impérativement les options 'debug=True' et 'reload=True' pour les déploiements"
-    - "Sur les environnements locaux, lier l'écoute sur '127.0.0.1' ou 'localhost'"
-    - "Sur Cloud Run, s'assurer que seul le port standard défini par la variable d'environnement PORT est exposé"
-  reference_url: "https://cloud.google.com/run/docs/container-contract#port"
+    - "Désactiver impérativement 'debug=True' et 'reload=True' dans les environnements hors développement local"
+    - "Utiliser un serveur WSGI/ASGI de production durci (Gunicorn, Uvicorn standard) sans console interactive"
+    - "Déployer le conteneur sur Cloud Run qui injecte automatiquement la variable PORT et isole le runtime"
+  reference_url: "https://cloud.google.com/run/docs/container-contract"
 engine:
   type: semgrep
   semgrep_rule:
-    id: net-binding-all-interfaces-debug
+    id: net-app-debug-bind-all
+    message: "Serveur Web lié sur 0.0.0.0 avec debug activé"
     languages: [python]
     severity: WARNING
-    message: "Serveur web lié sur 0.0.0.0 avec mode debug activé"
     patterns:
       - pattern-either:
           - pattern: $APP.run(..., host="0.0.0.0", ..., debug=True, ...)
+          - pattern: $APP.run(..., debug=True, ..., host="0.0.0.0", ...)
           - pattern: uvicorn.run(..., host="0.0.0.0", ..., reload=True, ...)
+          - pattern: uvicorn.run(..., reload=True, ..., host="0.0.0.0", ...)

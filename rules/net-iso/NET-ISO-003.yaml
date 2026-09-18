@@ -1,26 +1,30 @@
 id: NET-ISO-003
 family: NET-ISO
 severity: high
-title: "Conteneur Dockerfile s'exécutant avec l'utilisateur root ou exposant un port de débogage"
-rationale: "Exécuter un conteneur en tant que root affaiblit grandement l'isolation en cas d'échappement de conteneur. De même, exposer des ports de débogage distant (ex. 5678 pour debugpy, 9229 pour node inspect) permet l'exécution de code arbitraire à distance."
+title: "Image de conteneur s'exécutant sous l'utilisateur root ou exposant un port de debug"
+rationale: "Exécuter des processus applicatifs en tant qu'utilisateur root (UID 0) au sein d'un conteneur ou exposer des ports d'outils de debug (ex: 5678 pour debugpy) viole le principe de moindre privilège et facilite les attaques par évasion de conteneur."
 example: |
+  FROM python:3.12-slim
+  WORKDIR /app
   USER root
   EXPOSE 5678
+  CMD ["python", "server.py"]
 remediation:
-  summary: "Exécuter le conteneur sous un utilisateur non privilégié et fermer les ports de débogage"
-  gcp_service: "Cloud Run Container Runtime"
+  summary: "Créer un utilisateur non-root dédié dans le Dockerfile et fermer les ports de debug"
+  gcp_service: "Cloud Run & Google Artifact Registry"
   steps:
-    - "Créer un groupe et un utilisateur applicatif non-root (ex. 'RUN addgroup -S app && adduser -S app -G app') et ajouter 'USER app'"
-    - "Supprimer toute exposition de ports de débogage ('EXPOSE 5678', 'EXPOSE 9229')"
-    - "N'exposer que le port applicatif standard attendu par Cloud Run ($PORT)"
-  reference_url: "https://cloud.google.com/run/docs/developing#container"
+    - "Créer un utilisateur applicatif non privilégié dans le Dockerfile (ex: RUN useradd -m -u 10001 appuser)"
+    - "Définir la directive 'USER appuser' avant l'instruction CMD"
+    - "Supprimer les instructions EXPOSE associées à des serveurs de debug (ex: 5678)"
+  reference_url: "https://cloud.google.com/run/docs/container-contract#uid"
 engine:
   type: semgrep
   semgrep_rule:
-    id: net-dockerfile-root-or-debug-port
+    id: net-dockerfile-root-or-debug
+    message: "Exécution sous l'utilisateur root ou exposition de port de debug dans le Dockerfile"
     languages: [dockerfile]
     severity: WARNING
-    message: "Instruction USER root ou exposition de port de débogage distant dans le Dockerfile"
-    pattern-either:
-      - pattern: USER root
-      - pattern-regex: "(?i)EXPOSE\\s+(5678|5005|9229|8000)"
+    patterns:
+      - pattern-either:
+          - pattern-regex: 'USER\s+(root|0)\b'
+          - pattern-regex: 'EXPOSE\s+.*5678'

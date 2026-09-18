@@ -1,30 +1,30 @@
 id: LLM-GOV-001
 family: LLM-GOV
 severity: high
-title: "Appel direct non gouverné à une API LLM externe sans passerelle d'entreprise"
-rationale: "Effectuer des appels directs aux endpoints d'IA externes ou instancier des clients OpenAI/Anthropic sans passer par une passerelle d'entreprise empêche la journalisation centrale, l'application de quotas, le filtrage de contenu et l'observabilité."
+title: "Appel direct à un SDK ou endpoint LLM sans passerelle ni proxy de sécurité"
+rationale: "Effectuer des appels directs aux clients LLM tiers (OpenAI, Anthropic) ou à des endpoints publics non gouvernés court-circuite les politiques de DLP, d'audit des tokens et les filtres de sécurité d'entreprise comme Google Cloud Model Armor."
 example: |
-  client = OpenAI(api_key="sk-...")
-  response = client.chat.completions.create(...)
+  from openai import OpenAI
+  client = OpenAI(api_key="test-key")
 remediation:
-  summary: "Acheminer les requêtes LLM via Vertex AI ou une passerelle Agent Gateway avec Model Armor"
-  gcp_service: "Vertex AI / Agent Gateway / Model Armor"
+  summary: "Router les requêtes LLM via Google Cloud Vertex AI et Agent Gateway avec Model Armor"
+  gcp_service: "Vertex AI & Google Cloud Model Armor"
   steps:
-    - "Remplacer l'appel direct aux APIs tierces par le SDK Google GenAI / Vertex AI"
-    - "Centraliser le routage vers Vertex AI pour bénéficier de l'audit Cloud Logging et de la facturation unifiée"
-    - "Configurer une passerelle Agent Gateway avec les filtres Model Armor pour protéger les flux entrants/sortants"
-  reference_url: "https://cloud.google.com/vertex-ai/docs"
+    - "Migrer vers les API Vertex AI hébergées sur Google Cloud au lieu d'instancier des SDKs tiers non gouvernés"
+    - "Déployer une Agent Gateway Google Cloud avec Model Armor (CONTENT_AUTHZ) activé pour inspecter les flux"
+    - "Activer les filtres de protection contre le jailbreak et la détection de fuites de données sensibles (SDP)"
+  reference_url: "https://cloud.google.com/vertex-ai/generative-ai/docs/model-armor/overview"
 engine:
   type: semgrep
   semgrep_rule:
-    id: llm-direct-external-api-call
-    languages: [python, javascript, typescript]
+    id: llm-direct-public-endpoint
+    message: "Appel direct à un SDK ou endpoint d'API LLM non gouverné"
+    languages: [python]
     severity: WARNING
-    message: "Instanciation directe de client LLM externe sans passerelle ni endpoint d'entreprise"
-    pattern-either:
-      - pattern: OpenAI(...)
-      - pattern: new OpenAI(...)
-      - pattern: Anthropic(...)
-      - pattern: new Anthropic(...)
-      - pattern: requests.$METHOD("https://api.openai.com/$...", ...)
-      - pattern: fetch("https://api.openai.com/$...", ...)
+    patterns:
+      - pattern-either:
+          - pattern: OpenAI(...)
+          - pattern: Anthropic(...)
+          - pattern-regex: 'https://(api\.openai\.com|generativelanguage\.googleapis\.com|api\.anthropic\.com)'
+      - pattern-not: OpenAI(..., base_url=$URL, ...)
+      - pattern-not: Anthropic(..., base_url=$URL, ...)
