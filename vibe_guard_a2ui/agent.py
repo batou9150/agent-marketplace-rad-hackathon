@@ -164,6 +164,12 @@ def scan_repository(
                 directory=rule_pack.directory,
             )
 
+    target_type = "directory"
+    if source_clean.startswith(("http://", "https://")):
+        target_type = "git"
+    elif source_clean.endswith((".zip", ".tar.gz", ".tgz", ".tar")):
+        target_type = "archive"
+
     findings: list[Finding] = []
 
     try:
@@ -208,15 +214,14 @@ def scan_repository(
     # Record Audit (C6, SPEC-AUD-1, SPEC-AUD-2)
     try:
         recorder = AuditRecorder()
-        audit_record = ScanAuditRecord.from_scan(
-            scan_id=scan_id,
-            timestamp=report.timestamp,
-            duration_seconds=duration_seconds,
+        audit_record = ScanAuditRecord.create(
             caller_id=caller_id,
             pack_version=rule_pack.version,
-            target=source_clean,
-            findings=findings,
             rules_evaluated=[r.id for r in rule_pack.rules],
+            duration_seconds=duration_seconds,
+            findings_count=len(findings),
+            findings_by_severity=report.summary.by_severity,
+            target_source_type=target_type,
         )
         recorder.record(audit_record)
     except Exception as exc:
