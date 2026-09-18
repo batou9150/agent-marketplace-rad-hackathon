@@ -58,6 +58,27 @@ def test_gate2_corpus_recall_is_one(engine: ScanEngine) -> None:
 
 
 @pytest.mark.eval
+def test_spec_rul_7_all_rules_covered_by_nonconform_fixtures(engine: ScanEngine) -> None:
+    """SPEC-RUL-7: Every defined rule must have at least one non-conforming fixture triggering it."""
+    repo_root = Path(__file__).parents[2]
+    fixtures_dir = repo_root / "fixtures" / "nonconform"
+
+    covered_rules: set[str] = set()
+    for fixture_dir in fixtures_dir.iterdir():
+        expected_file = fixture_dir / "findings.expected.yaml"
+        if expected_file.is_file():
+            with open(expected_file, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            for ef in data.get("expected_findings", []):
+                covered_rules.add(ef["rule_id"])
+
+    pack_rule_ids = {r.id for r in engine.rule_pack.rules}
+    uncovered = pack_rule_ids - covered_rules
+    assert not uncovered, f"SPEC-RUL-7 violation: rules without non-conforming fixture: {uncovered}"
+
+
+
+@pytest.mark.eval
 def test_gate2_corpus_precision_is_one(engine: ScanEngine) -> None:
     """Gate 2 metric: 0 unexpected findings in conforming fixtures (precision = 1.0)."""
     repo_root = Path(__file__).parents[2]

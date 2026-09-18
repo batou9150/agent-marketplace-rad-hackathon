@@ -69,10 +69,25 @@ async def get_agent_card():
     }
 
 
+@app.get("/healthz")
+async def health_check():
+    return {"status": "ok", "agent": adk_agent.name}
+
+
+@app.get("/a2a/vibe_guard_a2ui/.well-known/agent-card.json")
+async def get_namespaced_agent_card():
+    return await get_agent_card()
+
+
 @app.get("/")
 async def get_index():
     index_file = current_dir / "index.html"
     return FileResponse(index_file)
+
+
+@app.post("/a2a/vibe_guard_a2ui")
+async def handle_namespaced_jsonrpc(request: Request):
+    return await handle_jsonrpc(request)
 
 
 @app.post("/jsonrpc")

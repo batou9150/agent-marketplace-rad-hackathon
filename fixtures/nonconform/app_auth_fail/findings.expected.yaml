@@ -1,5 +1,5 @@
 fixture_name: "app_auth_fail"
-description: "Application FastAPI avec route admin non protégée et comparaison naïve de mot de passe"
+description: "Application FastAPI avec route admin non protégée, comparaison naïve de mot de passe et Cloud Run public en Terraform"
 expected_findings:
   - rule_id: "AUTH-001"
     family: "AUTH"
@@ -9,3 +9,7 @@ expected_findings:
     family: "AUTH"
     file: "app.py"
     severity: "critical"
+  - rule_id: "AUTH-003"
+    family: "AUTH"
+    file: "main.tf"
+    severity: "high"
