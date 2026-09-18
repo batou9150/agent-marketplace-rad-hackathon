@@ -377,3 +377,91 @@ def test_spec_aud_2_and_3_audit_record_no_code_and_cloud_logging_format(tmp_path
     assert "content" not in parsed
     assert "code" not in parsed
     assert "secret" not in parsed
+
+
+@pytest.mark.integration
+def test_spec_ing_3_limits_enforced_before_scanners_start(tmp_path: Path) -> None:
+    """SPEC-ING-3: Limits §3.2 enforced during extraction, failing before any scanner starts."""
+    zip_path = tmp_path / "oversized_files.zip"
+    # Create an archive with 6,000 files (exceeding default IngestLimits.max_files = 5,000)
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for i in range(5005):
+            zf.writestr(f"file_{i}.txt", "x")
+
+    with (
+        EphemeralWorkspace(base_dir=tmp_path) as ws,
+        pytest.raises(IngestionError, match="maximum file count exceeded"),
+    ):
+        ws.extract_archive(zip_path)
+
+
+@pytest.mark.integration
+def test_spec_rep_1_and_rep_4_schema_documentation_and_markdown_parity(
+    scan_engine: ScanEngine, rule_pack
+) -> None:
+    """SPEC-REP-1 & SPEC-REP-4: Report schema doc coherence and parity with Markdown."""
+    repo_root = Path(__file__).parents[2]
+    schema_doc = (repo_root / "docs" / "report-schema.md").read_text(encoding="utf-8")
+
+    # SPEC-REP-1: Verify that every field of Report models is documented in docs/report-schema.md
+    from vibe_guard.report.models import (
+        EngineStatus,
+        Report,
+        ReportFinding,
+        ReportMetadata,
+        ReportRemediation,
+        ReportSnippet,
+        ReportSummary,
+        ScannerStatus,
+    )
+
+    models_to_check = [
+        Report,
+        ReportMetadata,
+        ReportSummary,
+        ReportFinding,
+        ReportSnippet,
+        ReportRemediation,
+        ScannerStatus,
+        EngineStatus,
+    ]
+    for model in models_to_check:
+        for field_name in model.model_fields:
+            if field_name == "schema_uri":
+                field_name = "$schema"
+            assert f"`{field_name}`" in schema_doc, (
+                f"Field {field_name} from {model.__name__} not documented in docs/report-schema.md"
+            )
+
+    # SPEC-REP-4: Parity between Report and Markdown rendering
+    fixture_dir = repo_root / "fixtures" / "nonconform" / "app_secrets_leak"
+    findings = scan_engine.scan(fixture_dir)
+    report = build_report(
+        findings=findings,
+        scan_id="parity-scan-12345",
+        timestamp="2026-09-18T10:00:00Z",
+        duration_seconds=0.75,
+        caller_id="tester@example.com",
+        pack_version=rule_pack.version,
+        target="fixtures/nonconform/app_secrets_leak",
+        llm_remediation_enabled=False,
+    )
+
+    md_str = report.to_markdown()
+
+    # Every key metadata field present in Markdown
+    assert report.metadata.scan_id in md_str
+    assert report.metadata.caller_id in md_str
+    assert report.metadata.pack_version in md_str
+    assert str(report.summary.total_findings) in md_str
+
+    # Every finding data present in Markdown
+    for finding in report.findings:
+        assert finding.rule_id in md_str
+        assert finding.finding_id in md_str
+        assert finding.file_path in md_str
+        assert str(finding.line_number) in md_str
+        assert finding.remediation.gcp_service in md_str
+        assert finding.remediation.summary in md_str
+        for step in finding.remediation.steps:
+            assert step in md_str

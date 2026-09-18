@@ -33,9 +33,17 @@ def render_markdown(report: Report) -> str:
             f"> **Scan ID** : `{report.metadata.scan_id}`  ",
             f"> **Date** : {report.metadata.timestamp}  ",
             f"> **Cible** : `{report.metadata.target}`  ",
+            f"> **Appelant** : `{report.metadata.caller_id}`  ",
             f"> **Pack de règles** : v{report.metadata.pack_version}  ",
             f"> **Durée** : {report.metadata.duration_seconds}s  ",
             f"> **Enrichissement IA (Gemini)** : {llm_status}",
+        ]
+    )
+    if report.metadata.prompt_version:
+        lines.append(f"> **Version du prompt** : `{report.metadata.prompt_version}`  ")
+
+    lines.extend(
+        [
             "",
             "---",
             "",
@@ -116,6 +124,7 @@ def render_markdown(report: Report) -> str:
             [
                 f"### {idx}. [{finding.rule_id}] {finding.title}",
                 "",
+                f"- **ID constatation** : `{finding.finding_id}`",
                 f"- **Sévérité** : {sev_icon} `{finding.severity.upper()}`",
                 f"- **Famille** : `{finding.family}`",
                 f"- **Emplacement** : `{finding.file_path}:{finding.line_number}`",

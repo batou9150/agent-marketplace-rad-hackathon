@@ -26,8 +26,9 @@ Le rapport Vibe Guard est généré sous deux formats :
     "duration_seconds": 1.42,
     "caller_id": "anonymous",
     "pack_version": "0.1.0",
-    "target": "/workspace/repo",
-    "llm_remediation_enabled": true
+    "target": "src/my_app",
+    "llm_remediation_enabled": true,
+    "prompt_version": "v1"
   },
   "summary": {
     "total_findings": 3,
@@ -65,47 +66,91 @@ Le rapport Vibe Guard est généré sous deux formats :
 }
 ```
 
-### 2.2 Modèle du statut des moteurs (`engine_status` - SPEC-REP-6)
+### 2.2 Champs racines (`Report` - SPEC-REP-1)
 
 | Champ | Type | Obligatoire | Description |
 |---|---|---|---|
-| `semgrep` | `object` | Oui | Statut d'exécution et version du scanner Semgrep OSS |
-| `semgrep.status` | `string` | Oui | `ok`, `error`, ou `skipped` |
-| `semgrep.version` | `string` | Non | Version du binaire Semgrep utilisé |
-| `semgrep.error_message` | `string` | Non | Message d'erreur si échec |
-| `semgrep.covered_families` | `list[string]` | Oui | Familles couvertes par ce scanner |
-| `semgrep.degraded_families` | `list[string]` | Oui | Familles dont la couverture a échoué |
-| `gitleaks` | `object` | Oui | Statut d'exécution et version du scanner Gitleaks |
-| `gitleaks.status` | `string` | Oui | `ok`, `error`, ou `skipped` |
-| `gitleaks.version` | `string` | Non | Version du binaire Gitleaks utilisé |
-| `gitleaks.error_message` | `string` | Non | Message d'erreur si échec |
-| `gitleaks.covered_families` | `list[string]` | Oui | Familles couvertes (`["SECRETS"]`) |
-| `gitleaks.degraded_families` | `list[string]` | Oui | Familles dont la couverture a échoué |
+| `$schema` | `string` | Oui | URI canonique du schéma (`https://vibe-guard.dev/schemas/v1/report.json`) |
+| `version` | `string` | Oui | Version du schéma de rapport (`1.0.0`) |
+| `metadata` | `object` | Oui | Métadonnées d'exécution et de contexte du scan |
+| `summary` | `object` | Oui | Synthèse statistique globale des non-conformités |
+| `engine_status` | `object` | Oui | Statut d'exécution et couverture des scanners |
+| `findings` | `list[object]` | Oui | Liste détaillée et ordonnée des constatations |
+
+### 2.3 Métadonnées d'exécution (`metadata` - ReportMetadata)
+
+| Champ | Type | Obligatoire | Description |
+|---|---|---|---|
+| `scan_id` | `string` | Oui | Identifiant unique du scan (UUID) |
+| `timestamp` | `string` | Oui | Date et heure ISO 8601 UTC de début d'analyse |
+| `duration_seconds` | `number` | Oui | Durée totale d'analyse en secondes |
+| `caller_id` | `string` | Oui | Identité authentifiée de l'appelant (ou `anonymous` en local) |
+| `pack_version` | `string` | Oui | Version sémantique du pack de règles évalué |
+| `target` | `string` | Oui | Cible ou dépôt analysé (chemin relatif hôte proscrit) |
+| `llm_remediation_enabled` | `boolean` | Oui | `true` si l'enrichissement Gemini a été activé |
+| `prompt_version` | `string` | Non | Version du template de prompt LLM utilisé (ex: `v1`) |
+
+### 2.4 Synthèse des constatations (`summary` - ReportSummary)
+
+| Champ | Type | Obligatoire | Description |
+|---|---|---|---|
+| `total_findings` | `integer` | Oui | Nombre total de non-conformités (égal à `len(findings)`) |
+| `by_severity` | `dict[string, int]` | Oui | Compteurs par sévérité (`critical`, `high`, `medium`, `low`) |
+| `by_family` | `dict[string, int]` | Oui | Compteurs par famille (`AUTH`, `SECRETS`, `LLM-GOV`, `NET-ISO`) |
+
+### 2.5 Modèle du statut des moteurs (`engine_status` - SPEC-REP-6)
+
+#### Structure globale (`EngineStatus`)
+
+| Champ | Type | Obligatoire | Description |
+|---|---|---|---|
+| `semgrep` | `object` | Oui | Statut d'exécution et version du scanner Semgrep OSS (`ScannerStatus`) |
+| `gitleaks` | `object` | Oui | Statut d'exécution et version du scanner Gitleaks (`ScannerStatus`) |
 | `coverage_degraded` | `list[string]` | Oui | Liste agrégée des familles non couvertes suite à un échec d'outil |
 
-### 2.3 Modèle d'une constatation (`Finding`)
+#### Détail d'un scanner (`ScannerStatus`)
+
+| Champ | Type | Obligatoire | Description |
+|---|---|---|---|
+| `status` | `string` | Oui | `ok`, `error`, ou `skipped` |
+| `version` | `string` | Non | Version du binaire utilisé |
+| `error_message` | `string` | Non | Message d'erreur si échec |
+| `covered_families` | `list[string]` | Oui | Familles de sécurité couvertes par ce scanner |
+| `degraded_families` | `list[string]` | Oui | Familles dont l'évaluation a échoué pour ce scanner |
+
+### 2.6 Modèle d'une constatation (`Finding` - ReportFinding)
 
 | Champ | Type | Obligatoire | Description |
 |---|---|---|---|
 | `finding_id` | `string` | Oui | UUID unique de l'occurrence trouvée |
 | `rule_id` | `string` | Oui | ID de la règle déclenchée (ex: `AUTH-001`, `SECRETS-001`) |
-| `family` | `string` | Oui | `AUTH`, `SECRETS`, `LLM-GOV`, `NET-ISO` |
-| `severity` | `string` | Oui | `critical`, `high`, `medium`, `low` |
+| `family` | `string` | Oui | Famille de sécurité (`AUTH`, `SECRETS`, `LLM-GOV`, `NET-ISO`) |
+| `severity` | `string` | Oui | Niveau de gravité (`critical`, `high`, `medium`, `low`) |
 | `title` | `string` | Oui | Intitulé clair de la non-conformité |
 | `message` | `string` | Oui | Message contextualisé sur le motif détecté |
-| `file_path` | `string` | Oui | Chemin relatif du fichier analysé |
+| `file_path` | `string` | Oui | Chemin relatif du fichier analysé (sans préfixe hôte) |
 | `line_number` | `integer` | Oui | Numéro de la ligne de détection principale |
-| `snippet` | `object` | Non | Extrait de code borné autour du finding (C2) |
-| `snippet.start_line` | `integer` | Non | Première ligne du snippet |
-| `snippet.end_line` | `integer` | Non | Dernière ligne du snippet |
-| `snippet.highlight_line` | `integer` | Non | Ligne ciblée |
-| `snippet.content` | `string` | Non | Lignes de code (taille bornée, max 1500 car.) |
-| `remediation` | `object` | Oui | Recommandation de remédiation GCP-native |
-| `remediation.summary` | `string` | Oui | Synthèse de l'action corrective |
-| `remediation.gcp_service` | `string` | Oui | Composant ou service Google Cloud cible |
-| `remediation.steps` | `list[string]` | Oui | Étapes ordonnées pour remédier à la vulnérabilité |
-| `remediation.reference_url` | `string` | Non | Lien officiel vers la documentation GCP ou WAF |
-| `remediation.contextual_advice` | `string` | Non | Conseil généré par Gemini (ADR-005) à partir du snippet |
+| `snippet` | `object` | Non | Extrait de code borné autour du finding (`ReportSnippet`, C2) |
+| `remediation` | `object` | Oui | Recommandation de remédiation GCP-native (`ReportRemediation`) |
+
+### 2.7 Extrait borné de code (`snippet` - ReportSnippet - C2)
+
+| Champ | Type | Obligatoire | Description |
+|---|---|---|---|
+| `start_line` | `integer` | Oui | Première ligne de l'extrait de code |
+| `end_line` | `integer` | Oui | Dernière ligne de l'extrait de code |
+| `highlight_line` | `integer` | Oui | Ligne précise déclenchant la règle |
+| `content` | `string` | Oui | Lignes de code (taille bornée, max 1500 car. hors marqueur C2) |
+
+### 2.8 Remédiation GCP (`remediation` - ReportRemediation)
+
+| Champ | Type | Obligatoire | Description |
+|---|---|---|---|
+| `summary` | `string` | Oui | Synthèse claire de l'action corrective |
+| `gcp_service` | `string` | Oui | Composant ou service Google Cloud cible |
+| `steps` | `list[string]` | Oui | Étapes ordonnées pour remédier à la vulnérabilité |
+| `reference_url` | `string` | Non | Lien officiel vers la documentation GCP ou WAF |
+| `contextual_advice` | `string` | Non | Conseil contextuel généré par Gemini (ADR-005) à partir du snippet |
 
 ---
 
