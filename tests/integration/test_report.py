@@ -245,3 +245,77 @@ def test_markdown_rendering(scan_engine: ScanEngine, rule_pack) -> None:
     assert "SECRETS" in md
     assert "Service cible" in md
     assert "Étapes de correction :" in md
+
+
+@pytest.mark.integration
+def test_engine_status_and_tool_error_degradation(rule_pack) -> None:
+    """SPEC-ENG-4 & SPEC-REP-6: Tool error populates engine_status and marks degraded."""
+    tool_err = Finding.create_tool_error(
+        "gitleaks",
+        "Gitleaks executable not found on host or container PATH.",
+    )
+    report = build_report(
+        findings=[tool_err],
+        scan_id="degraded-scan",
+        timestamp="2026-09-18T10:00:00Z",
+        duration_seconds=0.05,
+        caller_id="tester",
+        pack_version=rule_pack.version,
+        target="dummy_target",
+    )
+
+    # engine_status assertions
+    assert report.engine_status.gitleaks.status == "error"
+    assert report.engine_status.gitleaks.error_message is not None
+    assert "SECRETS" in report.engine_status.coverage_degraded
+    assert "SECRETS" in report.engine_status.gitleaks.degraded_families
+    assert report.engine_status.semgrep.status == "ok"
+    assert "AUTH" in report.engine_status.semgrep.covered_families
+
+    # Tool error must NOT be in findings or count as a non-conformance finding
+    assert len(report.findings) == 0
+    assert report.summary.total_findings == 0
+
+    # JSON export includes engine_status
+    json_str = report.to_json()
+    assert "engine_status" in json_str
+    assert "SECRETS" in json_str
+
+    # Markdown rendering shows warning banner and engine status table
+    md_str = report.to_markdown()
+    assert "Couverture de détection dégradée" in md_str
+    assert "ne peut pas être interprété comme conforme" in md_str
+    assert "❌ Erreur" in md_str
+
+
+@pytest.mark.integration
+def test_spec_rep_5_secrets_masked_in_report(scan_engine: ScanEngine, rule_pack) -> None:
+    """SPEC-REP-5: No secret values appear in JSON or Markdown renderings for app_secrets_leak."""
+    repo_root = Path(__file__).parents[2]
+    fixture_dir = repo_root / "fixtures" / "nonconform" / "app_secrets_leak"
+
+    findings = scan_engine.scan(fixture_dir)
+    assert len(findings) >= 2
+
+    report = build_report(
+        findings=findings,
+        scan_id="secret-mask-scan",
+        timestamp="2026-09-18T10:00:00Z",
+        duration_seconds=0.5,
+        caller_id="test",
+        pack_version=rule_pack.version,
+        target=str(fixture_dir),
+    )
+
+    json_str = report.to_json()
+    md_str = report.to_markdown()
+
+    # Raw secrets from fixture must NOT appear in JSON or Markdown
+    assert "sk-proj-abc1234567890abcdef1234567890abcdef" not in json_str
+    assert "sk-proj-abc1234567890abcdef1234567890abcdef" not in md_str
+    assert "super-secret-token-12345" not in json_str
+    assert "super-secret-token-12345" not in md_str
+
+    # Truncated fingerprints should be present
+    assert "sk-p...[MASQUÉ]" in json_str or "sk-pr...[MASQUÉ]" in json_str or "[MASQUÉ]" in json_str
+    assert "supe...[MASQUÉ]" in json_str or "[MASQUÉ]" in json_str

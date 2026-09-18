@@ -44,11 +44,46 @@ Le rapport Vibe Guard est généré sous deux formats :
       "NET-ISO": 0
     }
   },
+  "engine_status": {
+    "semgrep": {
+      "status": "ok",
+      "version": "1.70.0",
+      "error_message": null,
+      "covered_families": ["AUTH", "LLM-GOV", "NET-ISO"],
+      "degraded_families": []
+    },
+    "gitleaks": {
+      "status": "ok",
+      "version": "8.18.2",
+      "error_message": null,
+      "covered_families": ["SECRETS"],
+      "degraded_families": []
+    },
+    "coverage_degraded": []
+  },
   "findings": [ ... ]
 }
 ```
 
-### 2.2 Modèle d'une constatation (`Finding`)
+### 2.2 Modèle du statut des moteurs (`engine_status` - SPEC-REP-6)
+
+| Champ | Type | Obligatoire | Description |
+|---|---|---|---|
+| `semgrep` | `object` | Oui | Statut d'exécution et version du scanner Semgrep OSS |
+| `semgrep.status` | `string` | Oui | `ok`, `error`, ou `skipped` |
+| `semgrep.version` | `string` | Non | Version du binaire Semgrep utilisé |
+| `semgrep.error_message` | `string` | Non | Message d'erreur si échec |
+| `semgrep.covered_families` | `list[string]` | Oui | Familles couvertes par ce scanner |
+| `semgrep.degraded_families` | `list[string]` | Oui | Familles dont la couverture a échoué |
+| `gitleaks` | `object` | Oui | Statut d'exécution et version du scanner Gitleaks |
+| `gitleaks.status` | `string` | Oui | `ok`, `error`, ou `skipped` |
+| `gitleaks.version` | `string` | Non | Version du binaire Gitleaks utilisé |
+| `gitleaks.error_message` | `string` | Non | Message d'erreur si échec |
+| `gitleaks.covered_families` | `list[string]` | Oui | Familles couvertes (`["SECRETS"]`) |
+| `gitleaks.degraded_families` | `list[string]` | Oui | Familles dont la couverture a échoué |
+| `coverage_degraded` | `list[string]` | Oui | Liste agrégée des familles non couvertes suite à un échec d'outil |
+
+### 2.3 Modèle d'une constatation (`Finding`)
 
 | Champ | Type | Obligatoire | Description |
 |---|---|---|---|

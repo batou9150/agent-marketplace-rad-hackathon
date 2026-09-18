@@ -69,6 +69,28 @@ class ReportFinding(BaseModel):
     remediation: ReportRemediation
 
 
+class ScannerStatus(BaseModel):
+    """Execution status and coverage state for a single scanner tool."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: str = "ok"  # "ok", "error", "skipped"
+    version: str | None = None
+    error_message: str | None = None
+    covered_families: list[str] = Field(default_factory=list)
+    degraded_families: list[str] = Field(default_factory=list)
+
+
+class EngineStatus(BaseModel):
+    """Aggregate engine status across all detection scanners (SPEC-REP-6)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    semgrep: ScannerStatus
+    gitleaks: ScannerStatus
+    coverage_degraded: list[str] = Field(default_factory=list)
+
+
 class Report(BaseModel):
     """Complete Vibe Guard security and compliance report."""
 
@@ -81,6 +103,7 @@ class Report(BaseModel):
     version: str = "1.0.0"
     metadata: ReportMetadata
     summary: ReportSummary
+    engine_status: EngineStatus
     findings: list[ReportFinding]
 
     def to_json(self, indent: int = 2) -> str:

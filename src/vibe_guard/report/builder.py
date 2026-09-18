@@ -1,18 +1,47 @@
-"""Report building and deduplication logic (ADR-005b)."""
-
+import subprocess
 from collections.abc import Sequence
 
+from vibe_guard.engine.gitleaks import _find_gitleaks_binary
 from vibe_guard.engine.models import Finding
+from vibe_guard.engine.semgrep import _find_semgrep_binary
+from vibe_guard.report.masking import mask_secrets_in_text
 from vibe_guard.report.models import (
+    EngineStatus,
     Report,
     ReportFinding,
     ReportMetadata,
     ReportRemediation,
     ReportSnippet,
     ReportSummary,
+    ScannerStatus,
 )
 
 SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def _get_semgrep_version() -> str | None:
+    """Extract semgrep CLI version string."""
+    try:
+        bin_path = _find_semgrep_binary()
+        res = subprocess.run([bin_path, "--version"], capture_output=True, text=True, timeout=5)
+        if res.returncode == 0:
+            return res.stdout.strip().splitlines()[0]
+    except Exception:
+        pass
+    return None
+
+
+def _get_gitleaks_version() -> str | None:
+    """Extract gitleaks CLI version string."""
+    try:
+        bin_path = _find_gitleaks_binary()
+        if bin_path:
+            res = subprocess.run([bin_path, "version"], capture_output=True, text=True, timeout=5)
+            if res.returncode == 0:
+                return res.stdout.strip().splitlines()[0]
+    except Exception:
+        pass
+    return None
 
 
 def deduplicate_findings(findings: Sequence[Finding]) -> list[Finding]:
@@ -87,6 +116,50 @@ def build_report(
     by_severity = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     by_family = {"AUTH": 0, "SECRETS": 0, "LLM-GOV": 0, "NET-ISO": 0}
 
+    # Check scanner errors to populate engine_status (SPEC-ENG-4, SPEC-REP-6)
+    tool_errors = [f for f in findings if f.is_tool_error]
+    semgrep_errors = [f for f in tool_errors if "SEMGREP" in f.rule_id.upper()]
+    gitleaks_errors = [f for f in tool_errors if "GITLEAKS" in f.rule_id.upper()]
+
+    if semgrep_errors:
+        semgrep_status = ScannerStatus(
+            status="error",
+            error_message=semgrep_errors[0].message,
+            covered_families=[],
+            degraded_families=["AUTH", "LLM-GOV", "NET-ISO"],
+        )
+    else:
+        semgrep_status = ScannerStatus(
+            status="ok",
+            version=_get_semgrep_version(),
+            covered_families=["AUTH", "LLM-GOV", "NET-ISO"],
+            degraded_families=[],
+        )
+
+    if gitleaks_errors:
+        gitleaks_status = ScannerStatus(
+            status="error",
+            error_message=gitleaks_errors[0].message,
+            covered_families=[],
+            degraded_families=["SECRETS"],
+        )
+    else:
+        gitleaks_status = ScannerStatus(
+            status="ok",
+            version=_get_gitleaks_version(),
+            covered_families=["SECRETS"],
+            degraded_families=[],
+        )
+
+    coverage_degraded = sorted(
+        set(semgrep_status.degraded_families + gitleaks_status.degraded_families)
+    )
+    engine_status = EngineStatus(
+        semgrep=semgrep_status,
+        gitleaks=gitleaks_status,
+        coverage_degraded=coverage_degraded,
+    )
+
     report_findings: list[ReportFinding] = []
     for f in sorted_findings:
         sev_key = f.severity.lower()
@@ -95,14 +168,21 @@ def build_report(
         if f.family in by_family:
             by_family[f.family] += 1
 
+        explicit = [f.detected_secret] if f.detected_secret else None
+
         snippet_model = None
         if f.snippet:
+            masked_snippet_content = mask_secrets_in_text(
+                f.snippet.content, explicit_secrets=explicit
+            )
             snippet_model = ReportSnippet(
                 start_line=f.snippet.start_line,
                 end_line=f.snippet.end_line,
                 highlight_line=f.snippet.highlight_line,
-                content=f.snippet.content,
+                content=masked_snippet_content,
             )
+
+        masked_message = mask_secrets_in_text(f.message, explicit_secrets=explicit)
 
         # Contextual advice lookup by rule_id or unique finding key
         finding_key = f"{f.rule_id}:{f.file_path}:{f.line_number}"
@@ -122,7 +202,7 @@ def build_report(
                 family=f.family,
                 severity=f.severity.lower(),
                 title=f.title,
-                message=f.message,
+                message=masked_message,
                 file_path=f.file_path,
                 line_number=f.line_number,
                 snippet=snippet_model,
@@ -149,5 +229,6 @@ def build_report(
     return Report(
         metadata=metadata,
         summary=summary,
+        engine_status=engine_status,
         findings=report_findings,
     )
