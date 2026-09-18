@@ -103,3 +103,46 @@ def test_register_gemini_enterprise_payload_generation() -> None:
     assert payload["authorizationConfig"]["agentAuthorization"] == (
         "projects/123456789/locations/global/authorizations/auth-profile-v1"
     )
+
+
+def test_a2ui_server_routes_and_jsonrpc() -> None:
+    from fastapi.testclient import TestClient
+
+    from vibe_guard_a2ui.local_tester.server import app
+
+    client = TestClient(app)
+
+    # 1. Health check endpoint
+    resp = client.get("/healthz")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+    assert resp.json()["agent"] == "VibeGuardAgent"
+
+    # 2. Agent Card root and namespaced endpoints
+    card_resp = client.get("/.well-known/agent-card.json")
+    assert card_resp.status_code == 200
+    card_data = card_resp.json()
+    assert card_data["name"] == "VibeGuardAgent"
+    assert "capabilities" in card_data
+
+    ns_card_resp = client.get("/a2a/vibe_guard_a2ui/.well-known/agent-card.json")
+    assert ns_card_resp.status_code == 200
+    assert ns_card_resp.json()["name"] == "VibeGuardAgent"
+
+    # 3. JSON-RPC protocol error on invalid version
+    err_resp = client.post("/jsonrpc", json={"jsonrpc": "1.0", "id": "1"})
+    assert err_resp.status_code == 200
+    assert err_resp.json()["error"]["code"] == -32600
+
+    # 4. JSON-RPC unsupported method
+    unsupp_resp = client.post(
+        "/jsonrpc", json={"jsonrpc": "2.0", "method": "unknown/op", "id": "2"}
+    )
+    assert unsupp_resp.status_code == 200
+    assert unsupp_resp.json()["error"]["code"] == -32601
+
+    # 5. Namespaced JSON-RPC endpoint
+    ns_err_resp = client.post("/a2a/vibe_guard_a2ui", json={"jsonrpc": "1.0", "id": "3"})
+    assert ns_err_resp.status_code == 200
+    assert ns_err_resp.json()["error"]["code"] == -32600
+

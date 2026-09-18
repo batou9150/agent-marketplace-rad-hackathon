@@ -406,7 +406,7 @@ Ne pas implémenter, même si le coût paraît faible :
 
 Base : dépôt `antigravity`, commit courant, exécution locale et CI.
 
-**Preuve d'exécution** : `pytest tests/ -v` → `81 passed, 1 warning in 47.05s` (toutes les gates G1, G2, G3 et 100 % des exigences SPEC-* validées et vertes).
+**Preuve d'exécution** : `pytest tests/ -v` → `82 passed, 3 warnings in 48.19s` (toutes les gates G1, G2, G3 et 100 % des exigences SPEC-* validées et vertes).
 
 | Module | Présent | Remarque |
 |---|---|---|
