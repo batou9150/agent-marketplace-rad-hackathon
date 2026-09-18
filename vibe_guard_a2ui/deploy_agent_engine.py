@@ -21,9 +21,7 @@ logger = logging.getLogger("agent_engine_deployer")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Deploy Vibe Guard A2UI to Vertex AI Agent Engine"
-    )
+    parser = argparse.ArgumentParser(description="Deploy Vibe Guard A2UI to Vertex AI Agent Engine")
     parser.add_argument(
         "--project",
         default=os.environ.get("PROJECT_ID") or os.environ.get("GCP_PROJECT_ID"),
@@ -182,8 +180,7 @@ def main() -> None:
     # 5. Execute Create or Update
     if args.existing_id:
         engine_name = (
-            f"projects/{args.project}/locations/{args.location}"
-            f"/reasoningEngines/{args.existing_id}"
+            f"projects/{args.project}/locations/{args.location}/reasoningEngines/{args.existing_id}"
         )
         logger.info(f"Updating Reasoning Engine in-place: {engine_name}...")
         remote_agent = client.agent_engines.update(

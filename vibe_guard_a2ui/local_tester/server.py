@@ -178,13 +178,9 @@ async def handle_jsonrpc(request: Request):
                     and event.content.parts
                     and event.content.parts[0].text
                 ):
-                    final_text = "\n".join(
-                        [p.text for p in event.content.parts if p.text]
-                    )
+                    final_text = "\n".join([p.text for p in event.content.parts if p.text])
         except Exception as e:
-            logger.warning(
-                f"LLM run failed (falling back to deterministic form): {e}"
-            )
+            logger.warning(f"LLM run failed (falling back to deterministic form): {e}")
             final_text = agent.render_scan_form()
 
     # Split text and A2UI payload

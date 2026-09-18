@@ -140,7 +140,6 @@ def test_spec_ops_4_self_scan_zero_net_iso_and_secrets(scan_engine: ScanEngine) 
             all_findings.extend(findings)
 
     bad_findings = [
-        f for f in all_findings
-        if f.family in ("NET-ISO", "SECRETS") and f.rule_id != "TOOL-ERROR"
+        f for f in all_findings if f.family in ("NET-ISO", "SECRETS") and f.rule_id != "TOOL-ERROR"
     ]
     assert len(bad_findings) == 0, f"SPEC-OPS-4 failed: unexpected findings: {bad_findings}"

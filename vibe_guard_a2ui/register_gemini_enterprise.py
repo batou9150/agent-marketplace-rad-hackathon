@@ -22,9 +22,7 @@ logger = logging.getLogger("ge_registrar")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Register Vibe Guard A2UI in Gemini Enterprise"
-    )
+    parser = argparse.ArgumentParser(description="Register Vibe Guard A2UI in Gemini Enterprise")
     parser.add_argument(
         "--project",
         default=os.environ.get("PROJECT_ID") or os.environ.get("GCP_PROJECT_ID"),
@@ -96,16 +94,12 @@ def build_registration_payload(
     payload = {
         "displayName": display_name,
         "description": description,
-        "a2aAgentDefinition": {
-            "jsonAgentCard": json.dumps(card_copy, separators=(",", ":"))
-        },
+        "a2aAgentDefinition": {"jsonAgentCard": json.dumps(card_copy, separators=(",", ":"))},
     }
 
     if auth_id and project_number:
         auth_path = f"projects/{project_number}/locations/global/authorizations/{auth_id}"
-        payload["authorizationConfig"] = {
-            "agentAuthorization": auth_path
-        }
+        payload["authorizationConfig"] = {"agentAuthorization": auth_path}
 
     return payload
 
@@ -166,10 +160,10 @@ def main() -> None:
 
     curl_command = (
         f"curl -X POST \\\n"
-        f"  -H \"Authorization: Bearer $(gcloud auth print-access-token)\" \\\n"
-        f"  -H \"Content-Type: application/json\" \\\n"
-        f"  -H \"X-Goog-User-Project: {args.project or '$PROJECT_ID'}\" \\\n"
-        f"  \"{api_endpoint}\" \\\n"
+        f'  -H "Authorization: Bearer $(gcloud auth print-access-token)" \\\n'
+        f'  -H "Content-Type: application/json" \\\n'
+        f'  -H "X-Goog-User-Project: {args.project or "$PROJECT_ID"}" \\\n'
+        f'  "{api_endpoint}" \\\n'
         f"  -d '{json.dumps(payload, indent=2)}'"
     )
 

@@ -290,7 +290,7 @@ def explain_finding(
         f"- **Location**: `{target_finding.file_path}:{target_finding.line_number}`\n"
         f"- **Target GCP Service**: {target_finding.remediation.gcp_service}\n\n"
         f"**Remediation Steps**:\n"
-        + "\n".join(f"{i+1}. {step}" for i, step in enumerate(target_finding.remediation.steps))
+        + "\n".join(f"{i + 1}. {step}" for i, step in enumerate(target_finding.remediation.steps))
         + "\n\n"
         "Detailed code snippet and remediation guidance loaded in the Canvas side-panel."
     )
