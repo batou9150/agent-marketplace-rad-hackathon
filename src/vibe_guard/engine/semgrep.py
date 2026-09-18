@@ -1,9 +1,11 @@
 """Semgrep OSS executor and result normalizer for Vibe Guard."""
 
 import json
+import logging
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -14,12 +16,21 @@ from vibe_guard.engine.models import Finding
 from vibe_guard.engine.snippet import extract_bounded_snippet
 from vibe_guard.rules.loader import RulePack
 
+logger = logging.getLogger(__name__)
+
 
 def _find_semgrep_binary() -> str:
     """Find the semgrep executable in env, virtualenv or PATH (SPEC-ENG-7)."""
     env_bin = os.environ.get("VIBE_GUARD_SEMGREP_BIN")
     if env_bin and Path(env_bin).is_file():
         return env_bin
+    # Beside the running interpreter: the pip-installed entry point lives next to
+    # `python` in any virtualenv. Unlike the `.venv/bin/semgrep` probe below, this
+    # holds wherever the process was started from, which is what a deployed
+    # container needs: there the venv is not under the working directory.
+    interpreter_bin = Path(sys.executable).parent / "semgrep"
+    if interpreter_bin.is_file() and os_is_executable(interpreter_bin):
+        return str(interpreter_bin)
     venv_semgrep = Path(".venv/bin/semgrep").resolve()
     if venv_semgrep.is_file() and os_is_executable(venv_semgrep):
         return str(venv_semgrep)
@@ -33,6 +44,16 @@ def os_is_executable(path: Path) -> bool:
     import os
 
     return os.access(path, os.X_OK)
+
+
+def _tool_error(message: str) -> list[Finding]:
+    """Record a Semgrep failure as a finding and make it visible in the logs.
+
+    A tool error is excluded from the finding counts, so without this the scan
+    reports success while half the rule pack never ran.
+    """
+    logger.error("Semgrep execution failed: %s", message)
+    return [Finding.create_tool_error("semgrep", message)]
 
 
 def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
@@ -85,7 +106,7 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
         # Semgrep returns 0 on clean, 1 on findings detected
         if result.returncode not in (0, 1):
             err_msg = result.stderr.strip() or f"Semgrep exited with code {result.returncode}"
-            return [Finding.create_tool_error("semgrep", err_msg)]
+            return _tool_error(err_msg)
 
         output_data: dict[str, Any] = json.loads(result.stdout)
         findings: list[Finding] = []
@@ -130,10 +151,10 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
 
     except subprocess.TimeoutExpired:
         msg = f"Semgrep scan timed out after {timeout} seconds"
-        return [Finding.create_tool_error("semgrep", msg)]
+        return _tool_error(msg)
     except json.JSONDecodeError as exc:
-        return [Finding.create_tool_error("semgrep", f"Failed to parse Semgrep JSON output: {exc}")]
+        return _tool_error(f"Failed to parse Semgrep JSON output: {exc}")
     except Exception as exc:
-        return [Finding.create_tool_error("semgrep", f"Unexpected error executing Semgrep: {exc}")]
+        return _tool_error(f"Unexpected error executing Semgrep: {exc}")
     finally:
         config_path.unlink(missing_ok=True)
