@@ -79,7 +79,6 @@ def test_spec_rul_7_all_rules_covered_by_nonconform_fixtures(engine: ScanEngine)
     assert not uncovered, f"SPEC-RUL-7 violation: rules without non-conforming fixture: {uncovered}"
 
 
-
 @pytest.mark.eval
 def test_gate2_corpus_precision_is_one(engine: ScanEngine) -> None:
     """Gate 2 metric: 0 unexpected findings in conforming fixtures (precision = 1.0)."""

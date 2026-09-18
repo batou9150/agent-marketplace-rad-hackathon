@@ -487,17 +487,19 @@ def test_spec_aud_4_caller_id_resolution_deployed_and_local(monkeypatch, tmp_pat
 
     # 2. Local CLI scan without --caller-id -> "anonymous"
     out_json = tmp_path / "cli_report.json"
-    cli_code = main([
-        "scan",
-        str(clean_target),
-        "--rules",
-        str(repo_root / "rules"),
-        "--no-llm",
-        "--format",
-        "json",
-        "--out",
-        str(out_json),
-    ])
+    cli_code = main(
+        [
+            "scan",
+            str(clean_target),
+            "--rules",
+            str(repo_root / "rules"),
+            "--no-llm",
+            "--format",
+            "json",
+            "--out",
+            str(out_json),
+        ]
+    )
     assert cli_code == 0
     saved_data = json.loads(out_json.read_text(encoding="utf-8"))
     assert saved_data["metadata"]["caller_id"] == "anonymous"
@@ -527,9 +529,9 @@ def test_spec_ops_6_no_fabricated_metrics():
     """SPEC-OPS-6 & C7: No unmeasured benchmark claims or fabricated metrics in repo."""
     repo_root = Path(__file__).parents[2]
     readme = (repo_root / "README.md").read_text(encoding="utf-8")
-    agent_card = (
-        repo_root / "vibe_guard_a2ui" / ".well-known" / "agent.json"
-    ).read_text(encoding="utf-8")
+    agent_card = (repo_root / "vibe_guard_a2ui" / ".well-known" / "agent.json").read_text(
+        encoding="utf-8"
+    )
 
     forbidden_patterns = [
         "99.",
@@ -549,5 +551,3 @@ def test_spec_ops_6_no_fabricated_metrics():
         assert pattern not in agent_card.lower(), (
             f"Unmeasured marketing claim '{pattern}' found in agent.json"
         )
-
-

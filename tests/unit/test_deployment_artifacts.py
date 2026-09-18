@@ -76,7 +76,6 @@ def test_deploy_cloudrun_script_security_flags() -> None:
     assert "vibe-guard-agent-sa@" in content
 
 
-
 def test_agent_engine_dry_run() -> None:
     deployer_path = PROJECT_ROOT / "vibe_guard_a2ui" / "deploy_agent_engine.py"
     assert deployer_path.is_file()
@@ -157,4 +156,3 @@ def test_a2ui_server_routes_and_jsonrpc() -> None:
     ns_err_resp = client.post("/a2a/vibe_guard_a2ui", json={"jsonrpc": "1.0", "id": "3"})
     assert ns_err_resp.status_code == 200
     assert ns_err_resp.json()["error"]["code"] == -32600
-
