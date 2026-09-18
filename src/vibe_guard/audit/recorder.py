@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from vibe_guard.audit.models import ScanAuditRecord
@@ -19,7 +20,7 @@ class AuditRecorder:
         log_file: Path | str | None = None,
         sink_file: Path | str | None = None,
     ) -> None:
-        target = sink_file or log_file
+        target = sink_file or log_file or os.environ.get("VIBE_GUARD_AUDIT_LOG_FILE")
         self.sink_file = Path(target) if target else None
         self.log_file = self.sink_file
 

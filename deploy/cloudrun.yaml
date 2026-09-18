@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: vibe-guard
     app.kubernetes.io/component: a2ui-agent
   annotations:
-    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress: internal-and-cloud-load-balancing
     run.googleapis.com/description: "Vibe Guard A2UI security auditor agent for Gemini Enterprise"
 spec:
   template:
@@ -20,6 +20,7 @@ spec:
     spec:
       containerConcurrency: 8
       timeoutSeconds: 300
+      serviceAccountName: vibe-guard-agent-sa@PROJECT_ID.iam.gserviceaccount.com
       containers:
       - image: us-central1-docker.pkg.dev/PROJECT_ID/vibe-guard/vibe-guard-a2ui:latest
         ports:
@@ -41,13 +42,18 @@ spec:
           value: "/tmp"
         - name: PORT
           value: "8080"
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: vibe-guard-secrets
+              key: gemini-api-key
         volumeMounts:
         - name: ephemeral-scans
           mountPath: /tmp
         securityContext:
           runAsUser: 10001
           runAsNonRoot: true
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
       volumes:
       - name: ephemeral-scans
         emptyDir:

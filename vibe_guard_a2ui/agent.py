@@ -10,6 +10,7 @@ import os
 import time
 import uuid
 from pathlib import Path
+from typing import Any
 
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.tools.tool_context import ToolContext
@@ -51,7 +52,7 @@ def _find_rules_directory() -> Path:
 
 def _get_session_id(tool_context: ToolContext | None) -> str:
     """Extract or generate a session ID."""
-    if tool_context and tool_context.session:
+    if tool_context and hasattr(tool_context, "session") and tool_context.session:
         return getattr(tool_context.session, "id", "default_session")
     return "default_session"
 
@@ -94,6 +95,41 @@ def render_scan_form(tool_context: ToolContext | None = None) -> str:
     return f"{greeting}\n\n{wrap_a2ui_payload(ui_envelope['messages'])}"
 
 
+def resolve_caller_id(tool_context: Any = None, is_deployed: bool = False) -> str:
+    """Resolve caller identity (SPEC-AUD-4).
+
+    In deployed mode, caller_id MUST come from authenticated IAM/IAP identity
+    (tool_context.user_id, headers, or IAP environment variables).
+    In local mode, defaults to 'anonymous'.
+    """
+    caller_id = None
+    if tool_context:
+        if hasattr(tool_context, "user_id") and tool_context.user_id:
+            caller_id = tool_context.user_id
+        elif hasattr(tool_context, "headers") and isinstance(tool_context.headers, dict):
+            headers = tool_context.headers
+            caller_id = (
+                headers.get("x-goog-authenticated-user-email")
+                or headers.get("X-Goog-Authenticated-User-Email")
+                or headers.get("x-goog-iap-jwt-assertion")
+            )
+
+    if not caller_id and is_deployed:
+        caller_id = (
+            os.environ.get("IAP_CALLER_IDENTITY")
+            or os.environ.get("AUTHENTICATED_USER_EMAIL")
+            or os.environ.get("CALLER_ID")
+        )
+
+    if caller_id and caller_id.startswith("accounts.google.com:"):
+        caller_id = caller_id.split("accounts.google.com:", 1)[1]
+
+    if not caller_id:
+        return "" if is_deployed else "anonymous"
+
+    return caller_id.strip()
+
+
 def scan_repository(
     source: str,
     branch: str = "main",
@@ -129,41 +165,6 @@ def scan_repository(
             "Error: In deployed mode, only Git repository URLs or archive uploads are permitted. "
             f"Direct local paths are prohibited. Received: {source}"
         )
-
-def resolve_caller_id(tool_context: Any = None, is_deployed: bool = False) -> str:
-    """Resolve caller identity (SPEC-AUD-4).
-
-    In deployed mode, caller_id MUST come from authenticated IAM/IAP identity
-    (tool_context.user_id, headers, or IAP environment variables).
-    In local mode, defaults to 'anonymous'.
-    """
-    caller_id = None
-    if tool_context:
-        if hasattr(tool_context, "user_id") and tool_context.user_id:
-            caller_id = tool_context.user_id
-        elif hasattr(tool_context, "headers") and isinstance(tool_context.headers, dict):
-            headers = tool_context.headers
-            caller_id = (
-                headers.get("x-goog-authenticated-user-email")
-                or headers.get("X-Goog-Authenticated-User-Email")
-                or headers.get("x-goog-iap-jwt-assertion")
-            )
-
-    if not caller_id and is_deployed:
-        caller_id = (
-            os.environ.get("IAP_CALLER_IDENTITY")
-            or os.environ.get("AUTHENTICATED_USER_EMAIL")
-            or os.environ.get("CALLER_ID")
-        )
-
-    if caller_id and caller_id.startswith("accounts.google.com:"):
-        caller_id = caller_id.split("accounts.google.com:", 1)[1]
-
-    if not caller_id:
-        return "" if is_deployed else "anonymous"
-
-    return caller_id.strip()
-
 
     # SPEC-AGT-5 & SPEC-AUD-4: Caller ID from IAM/IAP in deployed mode, anonymous in local
     caller_id = resolve_caller_id(tool_context=tool_context, is_deployed=is_deployed)

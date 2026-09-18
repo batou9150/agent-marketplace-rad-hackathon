@@ -9,6 +9,7 @@ from vibe_guard_a2ui.a2ui_presentation import A2UI_DELIMITER
 from vibe_guard_a2ui.agent import (
     explain_finding,
     render_scan_form,
+    resolve_caller_id,
     root_agent,
     scan_repository,
     show_dashboard,
@@ -129,3 +130,74 @@ def test_spec_agt_5_deployed_mode_rejects_unauthenticated_caller(monkeypatch):
     result = scan_repository(source="https://github.com/vibe/clean_app.git", no_llm=True)
     assert "Error 401/403" in result
     assert "Unauthenticated caller" in result
+
+
+def test_spec_aud_4_caller_id_resolution_deployed_and_local(monkeypatch):
+    """SPEC-AUD-4: caller_id must originate from authenticated IAM/IAP identity
+    in deployment, and defaults to 'anonymous' in local mode.
+    """
+    class MockContextWithUser:
+        user_id = "user@example.com"
+
+    class MockContextWithIAPHeader:
+        headers = {"x-goog-authenticated-user-email": "accounts.google.com:iap-user@example.com"}
+
+    class MockEmptyContext:
+        pass
+
+    # 1. Local execution without context -> 'anonymous'
+    assert resolve_caller_id(None, is_deployed=False) == "anonymous"
+    assert resolve_caller_id(MockEmptyContext(), is_deployed=False) == "anonymous"
+
+    # 2. Local execution with user_id -> preserves user_id
+    assert resolve_caller_id(MockContextWithUser(), is_deployed=False) == "user@example.com"
+
+    # 3. Deployed execution without auth -> empty (unauthenticated)
+    assert resolve_caller_id(None, is_deployed=True) == ""
+    assert resolve_caller_id(MockEmptyContext(), is_deployed=True) == ""
+
+    # 4. Deployed execution with user_id -> 'user@example.com'
+    assert resolve_caller_id(MockContextWithUser(), is_deployed=True) == "user@example.com"
+
+    # 5. Deployed execution with IAP header -> stripped and preserved
+    assert resolve_caller_id(MockContextWithIAPHeader(), is_deployed=True) == "iap-user@example.com"
+
+    # 6. Deployed execution with IAP environment variable
+    monkeypatch.setenv("IAP_CALLER_IDENTITY", "accounts.google.com:env-user@corp.internal")
+    assert resolve_caller_id(None, is_deployed=True) == "env-user@corp.internal"
+
+
+def test_spec_aud_4_deployed_scan_records_authenticated_caller_identity(monkeypatch, tmp_path):
+    """SPEC-AUD-4: Deployed scan preserves and records authenticated caller_id in audit record."""
+    import zipfile
+
+    # Create dummy app zip archive
+    src_dir = tmp_path / "app"
+    src_dir.mkdir()
+    (src_dir / "app.py").write_text("print('hello')\n", encoding="utf-8")
+    archive_path = tmp_path / "app.zip"
+    with zipfile.ZipFile(archive_path, "w") as zf:
+        zf.write(src_dir / "app.py", arcname="app.py")
+
+    audit_file = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("VIBE_GUARD_ENV", "production")
+    monkeypatch.setenv("VIBE_GUARD_AUDIT_LOG_FILE", str(audit_file))
+
+    class AuthContext:
+        user_id = "audited-secops@company.com"
+
+    result = scan_repository(
+        source=str(archive_path),
+        no_llm=True,
+        tool_context=AuthContext(),
+    )
+    assert "Error 401/403" not in result
+    assert "Security Audit Completed" in result
+
+    # Check audit record
+    assert audit_file.is_file()
+    lines = audit_file.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) >= 1
+    import json
+    record = json.loads(lines[-1])
+    assert record["caller_id"] == "audited-secops@company.com"

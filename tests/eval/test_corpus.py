@@ -59,7 +59,9 @@ def test_gate2_corpus_recall_is_one(engine: ScanEngine) -> None:
 
 @pytest.mark.eval
 def test_spec_rul_7_all_rules_covered_by_nonconform_fixtures(engine: ScanEngine) -> None:
-    """SPEC-RUL-7: Every defined rule must have at least one non-conforming fixture triggering it."""
+    """SPEC-RUL-7: Every defined rule must have at least one non-conforming
+    fixture triggering it.
+    """
     repo_root = Path(__file__).parents[2]
     fixtures_dir = repo_root / "fixtures" / "nonconform"
 

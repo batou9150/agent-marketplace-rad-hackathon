@@ -41,14 +41,28 @@ def test_cloudrun_yaml_manifest() -> None:
     assert manifest["kind"] == "Service"
     assert manifest["metadata"]["name"] == "vibe-guard-a2ui"
 
-    container = manifest["spec"]["template"]["spec"]["containers"][0]
+    template_spec = manifest["spec"]["template"]["spec"]
+    container = template_spec["containers"][0]
     assert container["ports"][0]["containerPort"] == 8080
     assert container["securityContext"]["runAsNonRoot"] is True
     assert container["securityContext"]["runAsUser"] == 10001
+    assert container["securityContext"]["readOnlyRootFilesystem"] is True
+
+    # SPEC-OPS-3: Ingress restricted, dedicated service account, Secret Manager integration
+    assert (
+        manifest["metadata"]["annotations"]["run.googleapis.com/ingress"]
+        == "internal-and-cloud-load-balancing"
+    )
+    assert "vibe-guard-agent-sa@" in template_spec["serviceAccountName"]
+    secret_envs = [
+        e for e in container["env"] if "valueFrom" in e and "secretKeyRef" in e["valueFrom"]
+    ]
+    assert len(secret_envs) >= 1
 
     # Verify memory volume mounted on /tmp for ephemeral scans
     volume_mounts = {vm["name"]: vm["mountPath"] for vm in container["volumeMounts"]}
     assert "/tmp" in volume_mounts.values()
+
 
 
 def test_agent_engine_dry_run() -> None:
