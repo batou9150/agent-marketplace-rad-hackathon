@@ -1,0 +1,55 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: vibe-guard-a2ui
+  labels:
+    cloud.googleapis.com/location: us-central1
+    app.kubernetes.io/name: vibe-guard
+    app.kubernetes.io/component: a2ui-agent
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/description: "Vibe Guard A2UI security auditor agent for Gemini Enterprise"
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "10"
+        autoscaling.knative.dev/minScale: "0"
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 8
+      timeoutSeconds: 300
+      containers:
+      - image: us-central1-docker.pkg.dev/PROJECT_ID/vibe-guard/vibe-guard-a2ui:latest
+        ports:
+        - name: http1
+          containerPort: 8080
+        resources:
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+          requests:
+            cpu: "1000m"
+            memory: "1Gi"
+        env:
+        - name: VIBE_GUARD_ENV
+          value: "production"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: TMPDIR
+          value: "/tmp"
+        - name: PORT
+          value: "8080"
+        volumeMounts:
+        - name: ephemeral-scans
+          mountPath: /tmp
+        securityContext:
+          runAsUser: 10001
+          runAsNonRoot: true
+          readOnlyRootFilesystem: false
+      volumes:
+      - name: ephemeral-scans
+        emptyDir:
+          medium: Memory
+          sizeLimit: 1Gi

@@ -294,7 +294,7 @@ A2UI & GEMINI ENTERPRISE INTERFACE RULES:
 
 root_agent = LlmAgent(
     name="VibeGuardAgent",
-    model="gemini-2.5-pro",
+    model=os.getenv("ADK_MODEL", os.getenv("VG_LLM_MODEL", "gemini-3.8-flash")),
     instruction=SYSTEM_INSTRUCTION,
     tools=[
         render_scan_form,
