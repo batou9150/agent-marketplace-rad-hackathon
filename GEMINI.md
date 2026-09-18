@@ -3,7 +3,10 @@
 ## Project Overview
 Vibe Guard is an autonomous AI agent designed to scan vibe-coded application repositories, detect non-conformities (AUTH, SECRETS, LLM-GOV, NET-ISO), and provide actionable, GCP-native remediation reports.
 
-Reference PRD: `plan-implementation-agent-vibe-coding.md`
+**Source of truth: [`docs/SPEC.md`](docs/SPEC.md)** — normative specification driving development.
+Every behavior change MUST map to a `SPEC-*` requirement; if the requirement does not exist, update the spec first, then implement.
+Every commit message MUST reference at least one `SPEC-*` id (or `[CHORE]` / `[DOC]`).
+Historical plan (superseded): `plan-implementation-agent-vibe-coding.md`.
 
 ## Architectural Principles & Non-Negotiable Constraints
 - **C1: Static analysis only** — Never run the scanned code, never install its dependencies, never execute builds.

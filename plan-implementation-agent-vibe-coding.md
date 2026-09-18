@@ -1,5 +1,9 @@
 # Plan d'implémentation — Agent d'industrialisation du vibe coding (MVP V1)
 
+> ⛔ **Statut : superseded (2026-09-18).** Ce plan est remplacé par la spécification normative
+> [`docs/SPEC.md`](docs/SPEC.md), qui pilote désormais le développement (spec-driven development).
+> Ce fichier est conservé pour l'historique du découpage en phases. **En cas de contradiction, `docs/SPEC.md` prime.**
+
 > Document destiné à un agent de développement (Antigravity). Il se lit de haut en bas : contraintes, décisions, puis phases. Chaque phase se termine par un **gate** — ne pas enchaîner sur la phase suivante tant que le gate n'est pas vert. Toute décision non listée ici se prend en écrivant une ADR (voir §9) et en la soumettant avant implémentation.
 
 Version : 0.1 — 2026-09-18

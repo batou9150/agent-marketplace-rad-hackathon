@@ -7,6 +7,12 @@ Vibe Guard prend en entrée le code source d'une application générée par IA (
 2. Une proposition de remédiation textuelle contextualisée par non-conformité, ciblée GCP-natif.
 3. Une exposition sous forme d'agent A2A (Agent-to-Agent) déployable sur Google Cloud.
 
+## Spécification
+
+La référence normative du produit est [`docs/SPEC.md`](docs/SPEC.md) : invariants, modèle de domaine,
+contrats d'interface, exigences testables `SPEC-*`, catalogue de règles et gates de vérification.
+Le développement est piloté par cette spécification — le plan de phases initial est superseded.
+
 ## Stack technique
 
 - Python 3.12 (`uv`)
