@@ -42,13 +42,8 @@ gcloud artifacts repositories create "${AR_REPO}" \
 echo "Step 2: Building container image via Cloud Build..."
 gcloud builds submit . \
   --project="${PROJECT_ID}" \
-  --config=- <<EOF
-steps:
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', '${IMAGE_URI}', '-f', 'deploy/Dockerfile', '.']
-images:
-- '${IMAGE_URI}'
-EOF
+  --config="deploy/cloudbuild.yaml" \
+  --substitutions="_LOCATION=${REGION},_REPO=${AR_REPO},_IMAGE=${SERVICE_NAME},_TAG=${IMAGE_TAG}"
 
 echo "Step 3: Deploying container to Cloud Run..."
 # Security flags: default to private IAM/IAP and minimal SA (SPEC-OPS-3)

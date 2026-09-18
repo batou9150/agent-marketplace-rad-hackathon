@@ -295,3 +295,100 @@ def test_cli_scan_invalid_source_returns_2(capsys) -> None:
     assert code == 2
     captured = capsys.readouterr()
     assert "invalide ou introuvable" in captured.err
+
+
+def test_cli_get_default_rules_dir_fallbacks(monkeypatch) -> None:
+    """Test get_default_rules_dir resolution cascade."""
+    from vibe_guard.cli import get_default_rules_dir
+
+    # 1. No env var -> resolves repo rules if pack.yaml exists
+    monkeypatch.delenv("VIBE_GUARD_RULES_DIR", raising=False)
+    resolved = get_default_rules_dir()
+    assert resolved.is_dir()
+    assert (resolved / "pack.yaml").is_file()
+
+    # 2. Cwd rules when repo_rules doesn't exist
+    with (
+        patch("pathlib.Path.is_dir", return_value=True),
+        patch("pathlib.Path.is_file", return_value=True),
+    ):
+        res = get_default_rules_dir()
+        assert res is not None
+
+
+def test_cli_scan_invalid_rules_pack_returns_2(tmp_path: Path, capsys) -> None:
+    """Scan with broken rule pack returns exit code 2."""
+    repo_root = Path(__file__).parents[2]
+    fixture_dir = repo_root / "fixtures" / "conform" / "clean_python_app"
+    bad_rules = tmp_path / "bad_rules"
+    bad_rules.mkdir()
+    (bad_rules / "pack.yaml").write_text("invalid: true\n")
+
+    code = main(["scan", str(fixture_dir), "--rules", str(bad_rules), "--no-llm"])
+    assert code == 2
+    captured = capsys.readouterr()
+    assert "Erreur de chargement" in captured.err
+
+
+def test_cli_scan_archive_source(tmp_path: Path) -> None:
+    """Scan with a zip archive directly."""
+    import zipfile
+
+    repo_root = Path(__file__).parents[2]
+    rules_dir = repo_root / "rules"
+    archive_path = tmp_path / "app.zip"
+    with zipfile.ZipFile(archive_path, "w") as zf:
+        zf.writestr("main.py", "print('hello world')\n")
+
+    code = main(["scan", str(archive_path), "--rules", str(rules_dir), "--no-llm"])
+    assert code == 0
+
+
+def test_cli_scan_out_json_without_suffix(tmp_path: Path) -> None:
+    """Scan with --out path without extension and --format json."""
+    repo_root = Path(__file__).parents[2]
+    fixture_dir = repo_root / "fixtures" / "conform" / "clean_python_app"
+    rules_dir = repo_root / "rules"
+    out_prefix = tmp_path / "json_output"
+
+    code = main(
+        [
+            "scan",
+            str(fixture_dir),
+            "--rules",
+            str(rules_dir),
+            "--out",
+            str(out_prefix),
+            "--format",
+            "json",
+            "--no-llm",
+        ]
+    )
+    assert code == 0
+    assert (tmp_path / "json_output.json").is_file()
+
+
+def test_cli_rules_validate_generic_exception(tmp_path: Path, capsys) -> None:
+    """rules validate handles unexpected exceptions cleanly."""
+    with patch("vibe_guard.cli.load_rule_pack", side_effect=RuntimeError("Disk failure")):
+        code = main(["rules", "validate", "--rules", str(tmp_path)])
+        assert code == 2
+        captured = capsys.readouterr()
+        assert "Disk failure" in captured.err
+
+
+def test_cli_rules_list_generic_exception(tmp_path: Path, capsys) -> None:
+    """rules list handles unexpected exceptions cleanly."""
+    with patch("vibe_guard.cli.load_rule_pack", side_effect=RuntimeError("Parse failure")):
+        code = main(["rules", "list", "--rules", str(tmp_path)])
+        assert code == 2
+        captured = capsys.readouterr()
+        assert "Parse failure" in captured.err
+
+
+def test_cli_main_default_sys_argv() -> None:
+    """main() with no arguments defaults to sys.argv[1:]."""
+    with patch("sys.argv", ["vibe-guard", "--version"]):
+        with pytest.raises(SystemExit) as excinfo:
+            main()
+        assert excinfo.value.code == 0
