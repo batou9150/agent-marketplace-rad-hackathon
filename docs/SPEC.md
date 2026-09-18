@@ -274,11 +274,11 @@ Colonne *Statut* : ✅ implémenté et couvert par un test vert au 2026-09-18 ·
 
 | ID | Exigence | Critère d'acceptation | Statut |
 |---|---|---|---|
-| SPEC-AGT-1 | L'agent DOIT être un agent ADK exposant l'outil `scan` conforme à §4.2. | Appel local de l'agent → rapport identique à l'appel direct de l'API Python. | ⛔ |
-| SPEC-AGT-2 | L'agent DOIT publier une agent card A2A déclarant capacités, schémas d'entrée/sortie et mode d'authentification. | Card servie et validée contre la spec A2A. | ⛔ |
-| SPEC-AGT-3 | `explain_finding` DOIT répondre uniquement à partir du rapport en session ; il DOIT NE PAS déclencher de nouveau scan. | Trace d'exécution sans invocation d'outil de scan. | ⛔ |
-| SPEC-AGT-4 | En déploiement, la source `directory` DOIT être refusée. | Requête `type: directory` → erreur explicite. | ⛔ |
-| SPEC-AGT-5 | Un scan DOIT NE PAS pouvoir être déclenché sans appelant authentifié. | Requête non authentifiée → 401/403, aucun scan, aucune trace d'audit de scan. | ⛔ |
+| SPEC-AGT-1 | L'agent DOIT être un agent ADK exposant l'outil `scan` conforme à §4.2. | Appel local de l'agent → rapport identique à l'appel direct de l'API Python. | ✅ |
+| SPEC-AGT-2 | L'agent DOIT publier une agent card A2A déclarant capacités, schémas d'entrée/sortie et mode d'authentification. | Card servie et validée contre la spec A2A (`vibe_guard_a2ui/.well-known/agent.json`). | ✅ |
+| SPEC-AGT-3 | `explain_finding` DOIT répondre uniquement à partir du rapport en session ; il DOIT NE PAS déclencher de nouveau scan. | Trace d'exécution sans invocation d'outil de scan. | ✅ |
+| SPEC-AGT-4 | En déploiement, la source `directory` DOIT être refusée. | Requête `type: directory` → erreur explicite. | ✅ |
+| SPEC-AGT-5 | Un scan DOIT NE PAS pouvoir être déclenché sans appelant authentifié. | Requête non authentifiée → 401/403, aucun scan, aucune trace d'audit de scan. | ✅ |
 
 ### 5.8 Exécution, packaging, déploiement (`OPS`)
 
@@ -287,10 +287,10 @@ Colonne *Statut* : ✅ implémenté et couvert par un test vert au 2026-09-18 ·
 | SPEC-OPS-1 | L'image d'exécution DOIT embarquer `semgrep`, `gitleaks` et `git` à des versions épinglées, et le démarrage DOIT échouer si l'un manque. | `docker run` sans réseau : les trois binaires répondent `--version` ; suppression de l'un → démarrage en échec explicite. | ⛔ **écart connu** : `gitleaks` n'est aujourd'hui ni une dépendance déclarée ni packagée ; il est résolu via `PATH` (présent sur le poste, absent en CI/conteneur). |
 | SPEC-OPS-2 | Le conteneur DOIT tourner en utilisateur non-root, sans shell, système de fichiers racine en lecture seule hormis le répertoire de travail éphémère. | Inspection de l'image + exécution. | ⛔ |
 | SPEC-OPS-3 | Le service DOIT être privé (IAM/IAP), sa configuration issue de Secret Manager, avec un compte de service dédié à droits minimaux. | Déploiement inspecté ; accès anonyme refusé. | ⛔ |
-| SPEC-OPS-4 | Vibe Guard scanné par lui-même DOIT NE remonter aucun finding `NET-ISO` ni `SECRETS`. | Auto-scan en CI. | ⛔ |
+| SPEC-OPS-4 | Vibe Guard scanné par lui-même DOIT NE remonter aucun finding `NET-ISO` ni `SECRETS`. | Auto-scan en CI (`test_spec_ops_4_self_scan_zero_net_iso_and_secrets`). | ✅ |
 | SPEC-OPS-5 | La CI DOIT exécuter lint, tests unitaires, intégration et eval sur chaque PR, et échouer si une gate §8 régresse. | Pipeline vert exigé avant merge. | ⚠️ |
 | SPEC-OPS-6 | Aucune métrique non mesurée ne DOIT figurer dans le dépôt (README, docstrings, agent card, fiche Marketplace). | Revue systématique + contrôle CI sur motifs chiffrés dans le README. | ⚠️ |
-| SPEC-OPS-7 | La documentation (`docs/architecture.md`, `docs/report-schema.md`, `docs/rule-pack-format.md`) DOIT être cohérente avec le code ; toute divergence est un défaut. | Contrôle à chaque PR touchant un modèle. | ⚠️ (dérive connue : ±5 vs ±4 lignes d'extrait) |
+| SPEC-OPS-7 | La documentation (`docs/architecture.md`, `docs/report-schema.md`, `docs/rule-pack-format.md`) DOIT être cohérente avec le code ; toute divergence est un défaut. | Contrôle à chaque PR touchant un modèle (extrait à ±4 lignes aligné). | ✅ |
 
 ---
 
