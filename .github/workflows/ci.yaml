@@ -22,6 +22,15 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
+      - name: Install Gitleaks
+        run: |
+          GITLEAKS_VERSION="8.18.2"
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          sudo tar -xzf gitleaks.tar.gz -C /usr/local/bin gitleaks
+          sudo chmod +x /usr/local/bin/gitleaks
+          rm gitleaks.tar.gz
+          gitleaks version
+
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
