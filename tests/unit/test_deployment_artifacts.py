@@ -156,3 +156,47 @@ def test_a2ui_server_routes_and_jsonrpc() -> None:
     ns_err_resp = client.post("/a2a/vibe_guard_a2ui", json={"jsonrpc": "1.0", "id": "3"})
     assert ns_err_resp.status_code == 200
     assert ns_err_resp.json()["error"]["code"] == -32600
+
+    # 6. JSON-RPC message/send rendering scan form
+    form_resp = client.post(
+        "/jsonrpc",
+        json={
+            "jsonrpc": "2.0",
+            "method": "message/send",
+            "params": {"message": {"text": "help"}},
+            "id": "4",
+        },
+    )
+    assert form_resp.status_code == 200
+    form_data = form_resp.json()
+    assert "result" in form_data
+    parts = form_data["result"]["message"]["parts"]
+    assert any("application/json+a2ui" in str(p.get("metadata", {})) for p in parts)
+
+    # 7. JSON-RPC message/send executing scan
+    scan_resp = client.post(
+        "/jsonrpc",
+        json={
+            "jsonrpc": "2.0",
+            "method": "message/send",
+            "params": {
+                "message": {
+                    "text": "scan",
+                    "parts": [
+                        {
+                            "data": {
+                                "action": "submit_scan",
+                                "repo_url": "fixtures/conform/clean_python_app",
+                            }
+                        }
+                    ],
+                }
+            },
+            "id": "5",
+        },
+    )
+    assert scan_resp.status_code == 200
+    scan_data = scan_resp.json()
+    assert "result" in scan_data
+    scan_parts = scan_data["result"]["message"]["parts"]
+    assert any("application/json+a2ui" in str(p.get("metadata", {})) for p in scan_parts)

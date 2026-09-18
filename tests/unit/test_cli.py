@@ -142,3 +142,52 @@ def test_cli_scan_out_files(tmp_path) -> None:
     # Secret masking verification (SPEC-REP-5)
     assert "sk-proj-abc1234567890abcdef1234567890abcdef" not in json_content
     assert "sk-proj-abc1234567890abcdef1234567890abcdef" not in md_content
+
+
+def test_cli_scan_families_filter_and_aliases(tmp_path) -> None:
+    """Scan with --families AUTH on secrets fixture returns 0 findings and supports aliases."""
+    repo_root = Path(__file__).parents[2]
+    fixture_dir = repo_root / "fixtures" / "nonconform" / "app_secrets_leak"
+    rules_dir = repo_root / "rules"
+    out_file = tmp_path / "custom_report.md"
+
+    # Using --rules-pack, --out-file, and --families AUTH
+    code = main(
+        [
+            "scan",
+            str(fixture_dir),
+            "--rules-pack",
+            str(rules_dir),
+            "--families",
+            "AUTH",
+            "--no-llm",
+            "--out-file",
+            str(out_file),
+        ]
+    )
+    # Since only AUTH rules were evaluated, secrets fixture is clean of AUTH findings
+    assert code == 0
+    assert out_file.is_file()
+    assert "Total de non-conformités identifiées : **0**" in out_file.read_text()
+
+
+def test_cli_scan_invalid_family(capsys) -> None:
+    """Scan with an unknown family name must exit with code 2."""
+    repo_root = Path(__file__).parents[2]
+    fixture_dir = repo_root / "fixtures" / "conform" / "clean_python_app"
+    rules_dir = repo_root / "rules"
+
+    code = main(
+        [
+            "scan",
+            str(fixture_dir),
+            "--rules",
+            str(rules_dir),
+            "--families",
+            "UNKNOWN_FAMILY",
+            "--no-llm",
+        ]
+    )
+    assert code == 2
+    captured = capsys.readouterr()
+    assert "Famille inconnue" in captured.err

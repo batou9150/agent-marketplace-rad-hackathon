@@ -52,5 +52,6 @@ filterwarnings = [
     "ignore:.*BaseAgentConfig is deprecated.*:DeprecationWarning",
     "ignore:.*BlockingPortal alias is deprecated.*:DeprecationWarning",
     "ignore:.*Using `httpx` with `starlette.testclient` is deprecated.*:Warning",
+    "ignore:.*\\[EXPERIMENTAL\\] feature FeatureName.*:UserWarning",
 ]
 
