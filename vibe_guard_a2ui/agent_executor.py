@@ -242,9 +242,30 @@ def split_a2ui_payload(text: str) -> tuple[str, list[dict[str, Any]]]:
     return text_part.strip(), []
 
 
-def build_response_parts(final_text: str) -> list[Any]:
-    """Convert an agent answer into A2A parts: conversational text plus A2UI DataParts."""
-    conversational_text, ui_messages = split_a2ui_payload(final_text)
+def _tool_ui_messages(tool_response: Any) -> list[dict[str, Any]]:
+    """Extract the A2UI messages a Vibe Guard tool embedded in its return value."""
+    if not isinstance(tool_response, dict):
+        return []
+    for value in tool_response.values():
+        if isinstance(value, str) and A2UI_DELIMITER in value:
+            _, messages = split_a2ui_payload(value)
+            if messages:
+                return messages
+    return []
+
+
+def build_response_parts(
+    final_text: str,
+    tool_ui_messages: list[dict[str, Any]] | None = None,
+) -> list[Any]:
+    """Convert an agent answer into A2A parts: conversational text plus A2UI DataParts.
+
+    The surfaces come from the tool that built them whenever they are available:
+    a model asked to echo a multi-kilobyte JSON envelope verbatim regularly
+    truncates or reformats it, which leaves the client with no UI at all.
+    """
+    conversational_text, echoed_ui_messages = split_a2ui_payload(final_text)
+    ui_messages = tool_ui_messages or echoed_ui_messages
 
     parts: list[Any] = []
     if conversational_text:
@@ -364,19 +385,27 @@ class VibeGuardAgentExecutor(AgentExecutor):
             )
         return session
 
-    async def _run_agent(self, user_id: str, session_id: str, query: str) -> str:
+    async def _run_agent(
+        self, user_id: str, session_id: str, query: str
+    ) -> tuple[str, list[dict[str, Any]]]:
+        """Run one turn, returning the answer text and the A2UI surfaces its tools built."""
         content = genai_types.Content(role="user", parts=[genai_types.Part(text=query)])
         final_text = ""
+        ui_messages: list[dict[str, Any]] = []
         async for event in self._runner.run_async(
             user_id=user_id,
             session_id=session_id,
             new_message=content,
         ):
+            for function_response in event.get_function_responses():
+                messages = _tool_ui_messages(function_response.response)
+                if messages:
+                    ui_messages = messages
             if event.is_final_response() and event.content and event.content.parts:
                 texts = [p.text for p in event.content.parts if p.text]
                 if texts:
                     final_text = "\n".join(texts)
-        return final_text
+        return final_text, ui_messages
 
     async def execute(self, context: Any, event_queue: Any) -> None:
         """Run one Vibe Guard turn and enqueue the A2A response message."""
@@ -424,17 +453,20 @@ class VibeGuardAgentExecutor(AgentExecutor):
             effective_query[:200],
         )
 
+        tool_ui_messages: list[dict[str, Any]] = []
         try:
             # Scope the cached report to this conversation so one replica never
             # serves another caller's findings.
             with agent_module.session_scope(session_id):
-                final_text = await self._run_agent(caller_id, session_id, effective_query)
+                final_text, tool_ui_messages = await self._run_agent(
+                    caller_id, session_id, effective_query
+                )
         except Exception as exc:
             logger.exception("Vibe Guard agent run failed")
             final_text = f"Vibe Guard could not complete this request: {exc}"
 
         response = _make_agent_message(
-            parts=build_response_parts(final_text),
+            parts=build_response_parts(final_text, tool_ui_messages),
             context_id=getattr(context, "context_id", None),
             task_id=getattr(context, "task_id", None),
         )
