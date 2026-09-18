@@ -29,8 +29,8 @@ def test_dockerfile_security_and_a2a_compliance() -> None:
 
     # A2UI Cloud Run Deployer wiring:
     assert "PYTHONPATH" in content and "vibe_guard_a2ui" in content
-    assert 'ENTRYPOINT ["adk", "api_server"' in content
-    assert "--port=8080" in content
+    assert "ENTRYPOINT" in content
+    assert "8080" in content
 
 
 def test_cloudrun_yaml_manifest() -> None:

@@ -59,9 +59,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
     "pyyaml>=6.0" \
     "python-dotenv>=1.0.0"
 
-# Copy application source code and rule packs
+# Copy application source code, rule packs, and demo fixtures
 COPY src/ /app/src/
 COPY rules/ /app/rules/
+COPY fixtures/ /app/fixtures/
 COPY vibe_guard_a2ui/ /app/vibe_guard_a2ui/
 
 # Set working permissions for non-root user
@@ -83,7 +84,7 @@ EXPOSE 8080
 
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/a2a/vibe_guard_a2ui/.well-known/agent-card.json')" || exit 1
+    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')" || exit 1
 
-# Launch adk api_server serving the vibe_guard_a2ui agent
-ENTRYPOINT ["adk", "api_server", "--port=8080", "--host=0.0.0.0", "vibe_guard_a2ui"]
+# Launch server supporting interactive Web UI and A2A protocol
+ENTRYPOINT ["sh", "-c", "exec python3 -m uvicorn vibe_guard_a2ui.local_tester.server:app --host 0.0.0.0 --port ${PORT:-8080}"]
