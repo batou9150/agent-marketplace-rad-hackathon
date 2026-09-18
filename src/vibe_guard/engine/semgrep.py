@@ -102,9 +102,11 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
 
         # semgrep-core reads several variables as filesystem paths and aborts the
         # whole scan with Invalid_argument("": invalid path) when one is present
-        # but empty, which is how a managed runtime can hand them over. Which
-        # variables it consults is not documented, and an empty value carries no
-        # meaning for a subprocess, so every empty entry is dropped: unset is safe
+        # but empty. Agent Engine exports exactly that: SSL_CERT_FILE,
+        # REQUESTS_CA_BUNDLE, GRPC_DEFAULT_SSL_ROOTS_FILE_PATH and friends all
+        # arrive as empty strings, and SSL_CERT_FILE is the one semgrep resolves
+        # for TLS trust. An empty value carries no meaning for a subprocess, so
+        # every empty entry is dropped rather than enumerated: unset is safe
         # where empty is fatal.
         dropped = sorted(var for var, value in env.items() if not value)
         for var in dropped:
