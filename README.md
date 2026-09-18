@@ -55,9 +55,11 @@ uv run ruff format .
 
 ## Documentation
 
+- [Architecture & Workflows](docs/architecture.md)
+- [Schéma du Rapport (JSON / Markdown)](docs/report-schema.md)
+- [Format du pack de règles](docs/rule-pack-format.md)
 - [Stratégie Marketing & Commercialisation GCP Marketplace](docs/strategie-marketing-gcp-marketplace.md)
 - [Kit de Communication & Go-To-Market](docs/communication/)
-- [Format du pack de règles](docs/rule-pack-format.md)
 - [Décisions d'architecture (ADR)](docs/adr/)
 - [Plan d'implémentation](plan-implementation-agent-vibe-coding.md)
 
