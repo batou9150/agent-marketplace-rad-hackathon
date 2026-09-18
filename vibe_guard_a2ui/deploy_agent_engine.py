@@ -64,7 +64,9 @@ def main() -> None:
     args = parse_args()
 
     if not args.dry_run and not args.project:
-        logger.error("Project ID must be specified via --project or PROJECT_ID environment variable.")
+        logger.error(
+            "Project ID must be specified via --project or PROJECT_ID environment variable."
+        )
         sys.exit(1)
 
     logger.info("======================================================================")
@@ -73,7 +75,9 @@ def main() -> None:
     logger.info(f"Project ID     : {args.project or 'DRY-RUN'}")
     logger.info(f"Location       : {args.location}")
     logger.info(f"Staging Bucket : {args.staging_bucket or 'None'}")
-    logger.info(f"Action         : {'UPDATE' if args.existing_id else 'CREATE'} {'(DRY RUN)' if args.dry_run else ''}")
+    action_str = "UPDATE" if args.existing_id else "CREATE"
+    dry_str = " (DRY RUN)" if args.dry_run else ""
+    logger.info(f"Action         : {action_str}{dry_str}")
     logger.info("======================================================================")
 
     # 1. Load agent card and verify components
@@ -129,16 +133,16 @@ def main() -> None:
 
     # 3. Dynamic import of vertexai SDK
     try:
+        import agent_executor
         import vertexai
         from a2a.types import AgentSkill
         from google.genai import types
         from vertexai.preview.reasoning_engines import A2aAgent
         from vertexai.preview.reasoning_engines.templates.a2a import create_agent_card
-
-        import agent_executor
-        from agent import root_agent
     except ImportError as e:
-        logger.error(f"Vertex AI Agent Engine dependencies not installed in current environment: {e}")
+        logger.error(
+            f"Vertex AI Agent Engine dependencies not installed in current environment: {e}"
+        )
         logger.error("Run: pip install google-cloud-aiplatform[agent_engines,adk] a2a-sdk")
         sys.exit(1)
 
@@ -177,7 +181,10 @@ def main() -> None:
 
     # 5. Execute Create or Update
     if args.existing_id:
-        engine_name = f"projects/{args.project}/locations/{args.location}/reasoningEngines/{args.existing_id}"
+        engine_name = (
+            f"projects/{args.project}/locations/{args.location}"
+            f"/reasoningEngines/{args.existing_id}"
+        )
         logger.info(f"Updating Reasoning Engine in-place: {engine_name}...")
         remote_agent = client.agent_engines.update(
             name=engine_name,
