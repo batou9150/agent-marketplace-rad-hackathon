@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 FROM python:3.12-slim AS builder
 
-ARG GITLEAKS_VERSION=8.18.2
+ARG GITLEAKS_VERSION=8.30.1
 ARG TARGETARCH
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

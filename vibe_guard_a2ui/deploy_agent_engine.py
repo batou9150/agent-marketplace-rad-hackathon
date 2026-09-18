@@ -33,13 +33,19 @@ from pathlib import Path
 CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = CURRENT_DIR.parent
 
-# Modules copied into the deployed `vibe_guard_a2ui` package. The local tester,
-# the registration helper and this deployer stay out of the container image.
-AGENT_MODULES = (
-    "__init__.py",
-    "agent.py",
-    "agent_executor.py",
-    "a2ui_presentation.py",
+# The whole `vibe_guard_a2ui` package ships, minus what only serves local
+# development or deployment itself. An allowlist of modules was tried first and
+# silently dropped `schemas/`, so Agent Engine and Cloud Run (which copies the
+# package wholesale) diverged; excluding is safer than enumerating here.
+AGENT_EXCLUDES = shutil.ignore_patterns(
+    "__pycache__",
+    "*.pyc",
+    "*.db",
+    ".adk",
+    "local_tester",
+    "deploy_agent_engine.py",
+    "register_gemini_enterprise.py",
+    "create_ge_authorization.py",
 )
 
 INSTALLATION_SCRIPT = "installation_scripts/install.sh"
@@ -107,14 +113,7 @@ def build_staging_tree(staging_dir: Path) -> list[str]:
     """Assemble the deployment tree and return the relative extra_packages paths."""
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".adk", "*.db")
 
-    agent_pkg = staging_dir / "vibe_guard_a2ui"
-    agent_pkg.mkdir(parents=True)
-    for module in AGENT_MODULES:
-        source = CURRENT_DIR / module
-        if not source.is_file():
-            raise FileNotFoundError(f"Agent module missing: {source}")
-        shutil.copy2(source, agent_pkg / module)
-
+    shutil.copytree(CURRENT_DIR, staging_dir / "vibe_guard_a2ui", ignore=AGENT_EXCLUDES)
     shutil.copytree(PROJECT_DIR / "src" / "vibe_guard", staging_dir / "vibe_guard", ignore=ignore)
     shutil.copytree(PROJECT_DIR / "rules", staging_dir / "rules", ignore=ignore)
 
@@ -144,7 +143,9 @@ def build_requirements() -> list[str]:
         "a2a-sdk[http-server]>=0.3.4,<1",
         f"cloudpickle=={cloudpickle_version}",
         "pydantic>=2.7.0,<3",
-        "semgrep==1.79.0",
+        # Pinned to the version deploy/Dockerfile and SPEC.md fix, so a repository
+        # scanned on Cloud Run and on Agent Engine yields the same findings.
+        "semgrep==1.70.0",
         "pyyaml>=6.0",
     ]
 
@@ -156,7 +157,12 @@ def build_env_vars(args: argparse.Namespace) -> dict[str, str]:
         "VIBE_GUARD_ENV": args.env,
         "ADK_MODEL": args.model,
         # Scanners run in a container whose only writable location is /tmp.
+        # Mirrors deploy/Dockerfile: git, semgrep and the interpreter all write
+        # under $HOME by default, which is not writable here.
+        "HOME": "/tmp",
         "TMPDIR": "/tmp",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPYCACHEPREFIX": "/tmp/pycache",
         "SEMGREP_SETTINGS_FILE": "/tmp/semgrep_settings.yml",
         "SEMGREP_ENABLE_VERSION_CHECK": "0",
         "SEMGREP_SEND_METRICS": "off",
