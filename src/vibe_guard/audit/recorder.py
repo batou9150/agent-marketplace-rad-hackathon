@@ -19,8 +19,11 @@ class AuditRecorder:
         self,
         log_file: Path | str | None = None,
         sink_file: Path | str | None = None,
+        audit_dir: Path | str | None = None,
     ) -> None:
         target = sink_file or log_file or os.environ.get("VIBE_GUARD_AUDIT_LOG_FILE")
+        if not target and audit_dir:
+            target = Path(audit_dir) / "audit.jsonl"
         self.sink_file = Path(target) if target else None
         self.log_file = self.sink_file
 

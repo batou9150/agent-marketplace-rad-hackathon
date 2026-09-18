@@ -49,6 +49,53 @@ def test_audit_record_compat_fields_and_properties() -> None:
 
 
 @pytest.mark.unit
+def test_audit_record_from_scan() -> None:
+    """ScanAuditRecord.from_scan factory constructs complete record across all target types."""
+    findings = [
+        Finding(
+            rule_id="AUTH-001",
+            family="AUTH",
+            severity="high",
+            title="Missing Auth",
+            file_path="app.py",
+            line_number=10,
+            message="No auth configured",
+        ),
+        Finding.create_tool_error("semgrep", "Semgrep timeout"),
+    ]
+    # Target type git_url
+    rec1 = ScanAuditRecord.from_scan(
+        scan_id="scan-1",
+        timestamp="2026-09-18T10:00:00Z",
+        duration_seconds=1.5,
+        caller_id="tester",
+        pack_version="1.0.0",
+        target="https://github.com/org/repo.git",
+        findings=findings,
+        rules_evaluated=["AUTH-001"],
+    )
+    assert rec1.target_type == "git_url"
+    assert rec1.total_findings == 1
+    assert rec1.tool_errors_count == 1
+    assert rec1.findings_by_severity == {"high": 1}
+    assert rec1.findings_by_family == {"AUTH": 1}
+
+    # Target type archive
+    rec2 = ScanAuditRecord.from_scan(
+        scan_id="scan-2",
+        timestamp="2026-09-18T10:00:00Z",
+        duration_seconds=0.8,
+        caller_id="tester",
+        pack_version="1.0.0",
+        target="app.tar.gz",
+        findings=[],
+        rules_evaluated=[],
+    )
+    assert rec2.target_type == "archive"
+    assert rec2.total_findings == 0
+
+
+@pytest.mark.unit
 def test_audit_recorder_record_scan(tmp_path: Path, prod_pack) -> None:
     """AuditRecorder.record_scan correctly summarizes rule pack, findings, and tool errors."""
     sink = tmp_path / "scans.jsonl"

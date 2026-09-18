@@ -499,9 +499,10 @@
         }
 
         function handleServerResult(result) {
-            if (!result || !result.message || !result.message.parts) return;
+            if (!result) return;
+            const parts = result.parts || (result.message && result.message.parts);
+            if (!parts || !Array.isArray(parts)) return;
 
-            const parts = result.message.parts;
             let uiEnvelopes = [];
 
             for (const part of parts) {

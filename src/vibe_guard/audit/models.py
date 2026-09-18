@@ -70,6 +70,55 @@ class ScanAuditRecord(BaseModel):
             findings_by_severity=findings_by_severity or {},
         )
 
+    @classmethod
+    def from_scan(
+        cls,
+        scan_id: str,
+        timestamp: str,
+        duration_seconds: float,
+        caller_id: str,
+        pack_version: str,
+        target: str,
+        findings: list[Any] | None = None,
+        rules_evaluated: list[str] | None = None,
+    ) -> "ScanAuditRecord":
+        """Construct a full audit record directly from scan results."""
+        findings_list = findings or []
+        rules_list = rules_evaluated or []
+        sev_counts: dict[str, int] = {}
+        fam_counts: dict[str, int] = {}
+        tool_errors = 0
+
+        for f in findings_list:
+            if getattr(f, "is_tool_error", False):
+                tool_errors += 1
+                continue
+            sev = str(getattr(f, "severity", "medium")).lower()
+            sev_counts[sev] = sev_counts.get(sev, 0) + 1
+            fam = str(getattr(f, "family", "UNKNOWN"))
+            fam_counts[fam] = fam_counts.get(fam, 0) + 1
+
+        target_type = "directory"
+        if target.startswith(("https://", "http://", "git@", "ssh://")):
+            target_type = "git_url"
+        elif any(target.endswith(e) for e in [".zip", ".tar.gz", ".tgz", ".tar"]):
+            target_type = "archive"
+
+        return cls(
+            scan_id=scan_id,
+            timestamp=timestamp,
+            caller_id=caller_id,
+            pack_version=pack_version,
+            rules_evaluated=rules_list,
+            rules_count=len(rules_list),
+            duration_seconds=round(duration_seconds, 3),
+            target_type=target_type,
+            total_findings=len(findings_list) - tool_errors,
+            findings_by_severity=sev_counts,
+            findings_by_family=fam_counts,
+            tool_errors_count=tool_errors,
+        )
+
     def to_dict(self) -> dict[str, Any]:
         """Convert record to dictionary representation."""
         data = self.model_dump()

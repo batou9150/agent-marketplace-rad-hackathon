@@ -206,3 +206,92 @@ def test_cli_version(capsys) -> None:
     with pytest.raises(SystemExit) as excinfo:
         main(["-v"])
     assert excinfo.value.code == 0
+
+
+def test_cli_scan_with_audit_dir(tmp_path: Path) -> None:
+    """Verify that vibe-guard scan writes an audit record when --audit-dir is supplied."""
+    repo_root = Path(__file__).parents[2]
+    fixture_dir = repo_root / "fixtures" / "conform" / "clean_python_app"
+    rules_dir = repo_root / "rules"
+    audit_dir = tmp_path / "audit_sink"
+
+    code = main(
+        [
+            "scan",
+            str(fixture_dir),
+            "--rules",
+            str(rules_dir),
+            "--caller-id",
+            "cli-audit-tester",
+            "--audit-dir",
+            str(audit_dir),
+            "--no-llm",
+        ]
+    )
+    assert code == 0
+    audit_file = audit_dir / "audit.jsonl"
+    assert audit_file.is_file()
+    content = audit_file.read_text(encoding="utf-8")
+    assert "cli-audit-tester" in content
+    assert '"rules_count"' in content
+
+
+def test_cli_scan_with_out_files(tmp_path: Path) -> None:
+    """Verify vibe-guard scan with --out and --format both/json."""
+    repo_root = Path(__file__).parents[2]
+    fixture_dir = repo_root / "fixtures" / "conform" / "clean_python_app"
+    rules_dir = repo_root / "rules"
+
+    # --format both
+    both_out = tmp_path / "report_out"
+    code = main(
+        [
+            "scan",
+            str(fixture_dir),
+            "--rules",
+            str(rules_dir),
+            "--out",
+            str(both_out),
+            "--format",
+            "both",
+            "--no-llm",
+        ]
+    )
+    assert code == 0
+    assert (tmp_path / "report_out.json").is_file()
+    assert (tmp_path / "report_out.md").is_file()
+
+    # --format json to stdout
+    with patch("sys.stdout.write") as mock_stdout:
+        code_json = main(
+            [
+                "scan",
+                str(fixture_dir),
+                "--rules",
+                str(rules_dir),
+                "--format",
+                "json",
+                "--no-llm",
+            ]
+        )
+        assert code_json == 0
+        written = "".join([call[0][0] for call in mock_stdout.call_args_list])
+        assert '"scan_id"' in written
+
+
+def test_cli_scan_invalid_source_returns_2(capsys) -> None:
+    """Verify scan on non-existent path exits with code 2."""
+    repo_root = Path(__file__).parents[2]
+    rules_dir = repo_root / "rules"
+    code = main(
+        [
+            "scan",
+            "/tmp/non_existent_path_vibe_guard_12345",
+            "--rules",
+            str(rules_dir),
+            "--no-llm",
+        ]
+    )
+    assert code == 2
+    captured = capsys.readouterr()
+    assert "invalide ou introuvable" in captured.err

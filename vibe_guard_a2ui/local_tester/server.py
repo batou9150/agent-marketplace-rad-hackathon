@@ -10,6 +10,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+import uuid
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -137,10 +138,29 @@ async def handle_jsonrpc(request: Request):
             "id": request_id,
         }
 
-    message = params.get("message", {})
-    query = message.get("text", "")
-    parts = message.get("parts", [])
-    session_id = params.get("session_id", "local_session")
+    message = params.get("message", {}) if isinstance(params, dict) else {}
+    if not isinstance(message, dict):
+        message = {}
+
+    parts = message.get("parts", []) if isinstance(message.get("parts"), list) else []
+    query = message.get("text", "") or ""
+    if not query and parts:
+        text_parts = [
+            p.get("text") for p in parts
+            if isinstance(p, dict) and p.get("text")
+        ]
+        if text_parts:
+            query = " ".join(text_parts).strip()
+
+    context_id = (
+        message.get("contextId")
+        or message.get("context_id")
+        or (params.get("contextId") if isinstance(params, dict) else None)
+        or (params.get("context_id") if isinstance(params, dict) else None)
+        or (params.get("session_id") if isinstance(params, dict) else None)
+        or "local_session"
+    )
+    session_id = context_id
 
     # Extract user action and context from DataPart
     action_query, action_context = extract_action_context(parts)
@@ -283,13 +303,17 @@ async def handle_jsonrpc(request: Request):
             }
         )
 
+    if not response_parts:
+        response_parts.append({"text": "Scan ready."})
+
+    msg_id = f"msg-{uuid.uuid4().hex[:16]}"
     return {
         "jsonrpc": "2.0",
         "result": {
-            "message": {
-                "role": "model",
-                "parts": response_parts,
-            }
+            "messageId": msg_id,
+            "role": "agent",
+            "parts": response_parts,
+            "contextId": context_id,
         },
         "id": request_id,
     }

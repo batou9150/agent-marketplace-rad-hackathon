@@ -170,7 +170,9 @@ def test_a2ui_server_routes_and_jsonrpc() -> None:
     assert form_resp.status_code == 200
     form_data = form_resp.json()
     assert "result" in form_data
-    parts = form_data["result"]["message"]["parts"]
+    assert form_data["result"].get("role") == "agent"
+    assert "messageId" in form_data["result"]
+    parts = form_data["result"].get("parts") or form_data["result"].get("message", {}).get("parts", [])
     assert any("application/json+a2ui" in str(p.get("metadata", {})) for p in parts)
 
     # 7. JSON-RPC message/send executing scan
@@ -198,7 +200,9 @@ def test_a2ui_server_routes_and_jsonrpc() -> None:
     assert scan_resp.status_code == 200
     scan_data = scan_resp.json()
     assert "result" in scan_data
-    scan_parts = scan_data["result"]["message"]["parts"]
+    assert scan_data["result"].get("role") == "agent"
+    assert "messageId" in scan_data["result"]
+    scan_parts = scan_data["result"].get("parts") or scan_data["result"].get("message", {}).get("parts", [])
     assert any("application/json+a2ui" in str(p.get("metadata", {})) for p in scan_parts)
 
 
@@ -245,7 +249,8 @@ def test_a2ui_server_deployed_mode_authenticated_scan(monkeypatch, tmp_path) -> 
     assert scan_resp.status_code == 200
     scan_data = scan_resp.json()
     assert "result" in scan_data
-    result_text = scan_data["result"]["message"]["parts"][0].get("text", "")
+    scan_parts = scan_data["result"].get("parts") or scan_data["result"].get("message", {}).get("parts", [])
+    result_text = scan_parts[0].get("text", "")
     assert "Error 401/403" not in result_text
     assert "Vibe Guard Security Audit Completed" in result_text
 
@@ -269,5 +274,59 @@ def test_a2ui_server_raw_git_url_detected_as_scan() -> None:
     assert resp.status_code == 200
     resp_data = resp.json()
     assert "result" in resp_data
-    result_text = resp_data["result"]["message"]["parts"][0].get("text", "")
+    resp_parts = resp_data["result"].get("parts") or resp_data["result"].get("message", {}).get("parts", [])
+    result_text = resp_parts[0].get("text", "")
     assert "Vibe Guard Security Audit Completed" in result_text
+
+
+def test_gemini_enterprise_a2a_response_schema_compliance() -> None:
+    """Verify JSON-RPC response strictly complies with Gemini Enterprise A2A SendMessageResponse schema."""
+    from typing import Any, Optional, Union
+    from pydantic import BaseModel
+
+    class A2AMessageSchema(BaseModel):
+        messageId: str
+        role: str
+        parts: list[Any]
+        contextId: Optional[str] = None
+
+    class A2ATaskSchema(BaseModel):
+        id: str
+        contextId: str
+        status: Any
+
+    class SendMessageSuccessResponseSchema(BaseModel):
+        jsonrpc: str
+        result: Union[A2ATaskSchema, A2AMessageSchema]
+        id: Union[str, int, None]
+
+    client = TestClient(app)
+    # Simulate exact Gemini Enterprise incoming payload
+    ge_payload = {
+        "jsonrpc": "2.0",
+        "method": "message/send",
+        "params": {
+            "message": {
+                "messageId": "client-msg-ge-001",
+                "contextId": "context-ge-session-777",
+                "role": "user",
+                "parts": [
+                    {"text": "scan fixtures/conform/clean_python_app"}
+                ],
+            }
+        },
+        "id": "ge-req-42",
+    }
+    resp = client.post("/a2a/vibe_guard_a2ui", json=ge_payload)
+    assert resp.status_code == 200
+    resp_json = resp.json()
+
+    # Validate against Gemini Enterprise Pydantic schema
+    validated = SendMessageSuccessResponseSchema.model_validate(resp_json)
+    assert validated.jsonrpc == "2.0"
+    assert validated.id == "ge-req-42"
+    assert isinstance(validated.result, A2AMessageSchema)
+    assert validated.result.role == "agent"
+    assert validated.result.contextId == "context-ge-session-777"
+    assert len(validated.result.parts) >= 1
+
