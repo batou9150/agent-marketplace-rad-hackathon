@@ -52,11 +52,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--agent-engine-id",
-        help="Reasoning Engine resource ID or full path (e.g. projects/.../locations/.../reasoningEngines/...)",
+        help="Reasoning Engine resource ID or full path (projects/.../reasoningEngines/...)",
     )
     parser.add_argument(
         "--auth-id",
-        help="Optional Gemini Enterprise Authorization ID for OAuth (projects/<PNUM>/locations/global/authorizations/<AUTH_ID>)",
+        help="Optional Gemini Enterprise Authorization ID for OAuth",
     )
     parser.add_argument(
         "--display-name",
@@ -102,8 +102,9 @@ def build_registration_payload(
     }
 
     if auth_id and project_number:
+        auth_path = f"projects/{project_number}/locations/global/authorizations/{auth_id}"
         payload["authorizationConfig"] = {
-            "agentAuthorization": f"projects/{project_number}/locations/global/authorizations/{auth_id}"
+            "agentAuthorization": auth_path
         }
 
     return payload

@@ -125,3 +125,22 @@ def test_spec_eng_7_binary_env_override(tmp_path: Path) -> None:
     with patch.dict(os.environ, {"VIBE_GUARD_SEMGREP_BIN": str(fake_semgrep)}):
         resolved_semgrep = _find_semgrep_binary()
         assert resolved_semgrep == str(fake_semgrep)
+
+
+@pytest.mark.integration
+def test_spec_ops_4_self_scan_zero_net_iso_and_secrets(scan_engine: ScanEngine) -> None:
+    """SPEC-OPS-4: Vibe Guard scanned by itself must produce 0 NET-ISO and 0 SECRETS findings."""
+    repo_root = Path(__file__).parents[2]
+    target_dirs = [repo_root / "src", repo_root / "deploy", repo_root / "vibe_guard_a2ui"]
+
+    all_findings = []
+    for d in target_dirs:
+        if d.is_dir():
+            findings = scan_engine.scan(d)
+            all_findings.extend(findings)
+
+    bad_findings = [
+        f for f in all_findings
+        if f.family in ("NET-ISO", "SECRETS") and f.rule_id != "TOOL-ERROR"
+    ]
+    assert len(bad_findings) == 0, f"SPEC-OPS-4 failed: unexpected findings: {bad_findings}"

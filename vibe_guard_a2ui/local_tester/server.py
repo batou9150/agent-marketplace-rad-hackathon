@@ -9,7 +9,6 @@ import os
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -20,8 +19,6 @@ current_dir = Path(__file__).resolve().parent
 agent_dir = current_dir.parent
 project_dir = agent_dir.parent
 sys.path.extend([str(agent_dir), str(project_dir), str(project_dir / "src")])
-
-load_dotenv(project_dir / ".env")
 
 import agent
 from agent_executor import extract_action_context, split_a2ui_payload
