@@ -8,9 +8,9 @@ import logging
 import os
 import re
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
-import uuid
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -145,10 +145,7 @@ async def handle_jsonrpc(request: Request):
     parts = message.get("parts", []) if isinstance(message.get("parts"), list) else []
     query = message.get("text", "") or ""
     if not query and parts:
-        text_parts = [
-            p.get("text") for p in parts
-            if isinstance(p, dict) and p.get("text")
-        ]
+        text_parts = [p.get("text") for p in parts if isinstance(p, dict) and p.get("text")]
         if text_parts:
             query = " ".join(text_parts).strip()
 
