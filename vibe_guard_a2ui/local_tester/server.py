@@ -5,6 +5,8 @@ Provides JSON-RPC 2.0 A2A protocol emulation, schema validation, and web mock cl
 
 import json
 import logging
+import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -31,6 +33,28 @@ from google.genai import types as genai_types
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("a2ui_local_tester")
+
+# Detect Git URLs, repo archives, or local fixture paths pasted into chat
+GIT_OR_PATH_REGEX = re.compile(
+    r"(https?://[^\s]+|git@[^\s]+|fixtures/[^\s]+|[\w./-]+\.(?:zip|tar\.gz|tgz|tar))"
+)
+
+
+class SessionToolContext:
+    """Tool context adapter simulating ADK ToolContext for local server & A2A calls."""
+
+    def __init__(
+        self,
+        user_id: str,
+        session_id: str,
+        state: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ):
+        self.user_id = user_id
+        self.session = type("SessionObj", (), {"id": session_id})()
+        self.state = state or {}
+        self.headers = headers or {}
+
 
 app = FastAPI(title="Vibe Guard A2UI Local Tester")
 
@@ -69,7 +93,7 @@ async def get_agent_card():
     }
 
 
-@app.get("/healthz")
+@app.api_route("/healthz", methods=["GET", "HEAD"])
 async def health_check():
     return {"status": "ok", "agent": adk_agent.name}
 
@@ -79,7 +103,7 @@ async def get_namespaced_agent_card():
     return await get_agent_card()
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def get_index():
     index_file = current_dir / "index.html"
     return FileResponse(index_file)
@@ -121,15 +145,34 @@ async def handle_jsonrpc(request: Request):
     # Extract user action and context from DataPart
     action_query, action_context = extract_action_context(parts)
 
+    # Resolve caller identity from HTTP headers, params, message, action context, or environment
+    headers_dict = dict(request.headers)
+    req_caller_id = (
+        headers_dict.get("x-goog-authenticated-user-email")
+        or headers_dict.get("x-caller-id")
+        or headers_dict.get("x-user-id")
+        or headers_dict.get("x-user-email")
+        or params.get("caller_id")
+        or params.get("user_id")
+        or (message.get("caller_id") if isinstance(message, dict) else None)
+        or (action_context.get("caller_id") if isinstance(action_context, dict) else None)
+        or os.getenv("IAP_CALLER_IDENTITY")
+        or os.getenv("AUTHENTICATED_USER_EMAIL")
+        or os.getenv("CALLER_ID")
+        or "auditor@gcp.sfeir.com"
+    )
+    if ":" in req_caller_id and "@" in req_caller_id:
+        req_caller_id = req_caller_id.split(":")[-1]
+
     session = await runner.session_service.get_session(
         app_name=adk_agent.name,
-        user_id="local_user",
+        user_id=req_caller_id,
         session_id=session_id,
     )
     if not session:
         session = await runner.session_service.create_session(
             app_name=adk_agent.name,
-            user_id="local_user",
+            user_id=req_caller_id,
             state={},
             session_id=session_id,
         )
@@ -149,7 +192,15 @@ async def handle_jsonrpc(request: Request):
     # Inject state into query for multi-replica continuity
     state_str = " ".join([f"[State: {k}={v}]" for k, v in state.items()])
     effective_query = f"{query} {state_str}".strip() if state_str else query.strip()
-    logger.info(f"Effective query: {effective_query}")
+    logger.info(f"Effective query: {effective_query} (caller: {req_caller_id})")
+
+    # Build SessionToolContext for agent tool calls
+    tool_ctx = SessionToolContext(
+        user_id=req_caller_id,
+        session_id=session_id,
+        state=state,
+        headers=headers_dict,
+    )
 
     final_text = ""
 
@@ -160,32 +211,51 @@ async def handle_jsonrpc(request: Request):
         or (action_context.get("name") if isinstance(action_context, dict) else None)
     )
 
-    if (
-        "scan repository" in query.lower()
-        or action_name == "submit_scan"
+    # Detect if query directly contains a Git URL, repo archive, or scan intent
+    url_match = GIT_OR_PATH_REGEX.search(query)
+    detected_url = url_match.group(0).strip(".,;:\"'<> ") if url_match else None
+
+    is_scan_intent = (
+        "scan" in query.lower()
+        or action_name in ("submit_scan", "scan")
         or "repo_url" in action_context
-    ):
-        repo_url = action_context.get("repo_url", "fixtures/nonconform/app_llm_injection")
+        or (
+            detected_url is not None
+            and not any(w in query.lower() for w in ["explain", "finding", "help"])
+        )
+    )
+
+    if is_scan_intent:
+        repo_url = (
+            action_context.get("repo_url")
+            or detected_url
+            or "fixtures/nonconform/app_llm_injection"
+        )
+        repo_url = repo_url.strip(".,;:\"'<> ")
         branch = action_context.get("branch", "main")
         families = action_context.get("families", ["AUTH", "SECRETS", "LLM-GOV", "NET-ISO"])
         if isinstance(families, str):
             families = [f.strip() for f in families.split(",")]
         final_text = agent.scan_repository(
-            source=repo_url, branch=branch, families=families, no_llm=True
+            source=repo_url,
+            branch=branch,
+            families=families,
+            no_llm=True,
+            tool_context=tool_ctx,
         )
     elif "explain finding" in query.lower() or action_name == "explain_finding":
         finding_id = action_context.get("finding_id") or action_context.get("rule_id", "")
-        final_text = agent.explain_finding(finding_id=finding_id)
+        final_text = agent.explain_finding(finding_id=finding_id, tool_context=tool_ctx)
     elif "dashboard" in query.lower() or action_name == "show_dashboard":
-        final_text = agent.show_dashboard()
+        final_text = agent.show_dashboard(tool_context=tool_ctx)
     elif not query or query.lower() in ["hi", "hello", "bonjour", "start", "help"]:
-        final_text = agent.render_scan_form()
+        final_text = agent.render_scan_form(tool_context=tool_ctx)
     else:
         # Pass to ADK Runner with Gemini model
         try:
             content = genai_types.Content(role="user", parts=[{"text": effective_query}])
             async for event in runner.run_async(
-                user_id="local_user", session_id=session.id, new_message=content
+                user_id=req_caller_id, session_id=session.id, new_message=content
             ):
                 if (
                     event.is_final_response()
@@ -196,7 +266,7 @@ async def handle_jsonrpc(request: Request):
                     final_text = "\n".join([p.text for p in event.content.parts if p.text])
         except Exception as e:
             logger.warning(f"LLM run failed (falling back to deterministic form): {e}")
-            final_text = agent.render_scan_form()
+            final_text = agent.render_scan_form(tool_context=tool_ctx)
 
     # Split text and A2UI payload
     conversational_text, ui_messages = split_a2ui_payload(final_text)
@@ -226,4 +296,5 @@ async def handle_jsonrpc(request: Request):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    port = int(os.getenv("PORT", "8080"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

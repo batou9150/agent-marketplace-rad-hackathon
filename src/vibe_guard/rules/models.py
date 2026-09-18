@@ -97,3 +97,6 @@ class PackManifest(BaseModel):
     name: str = Field(..., min_length=2, description="Pack name")
     description: str = Field(..., min_length=5, description="Pack description")
     families: list[RuleFamilyDef] = Field(..., min_length=1, description="Registered families")
+
+
+RuleManifest = PackManifest

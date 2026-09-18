@@ -73,9 +73,13 @@ RUN chown -R ${USERNAME}:${USERNAME} /app /tmp
 # 1. PYTHONPATH contains vibe_guard_a2ui so sitecustomize.py is auto-loaded by Python
 ENV PYTHONPATH="/app:/app/src:/app/vibe_guard_a2ui:$PYTHONPATH"
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPYCACHEPREFIX=/tmp/pycache
+ENV HOME=/tmp
 ENV VIBE_GUARD_ENV=production
 ENV TMPDIR=/tmp
 ENV PORT=8080
+ENV CALLER_ID="vibe-guard-auditor@gcp.sfeir.com"
 
 # Switch to non-root user (SPEC-DEP-1)
 USER ${USERNAME}

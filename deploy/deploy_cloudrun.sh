@@ -51,21 +51,37 @@ images:
 EOF
 
 echo "Step 3: Deploying container to Cloud Run..."
+# Security flags: default to private IAM/IAP and minimal SA (SPEC-OPS-3)
+ALLOW_UNAUTH_FLAG="--no-allow-unauthenticated"
+if [ "${ALLOW_UNAUTHENTICATED:-false}" = "true" ]; then
+  ALLOW_UNAUTH_FLAG="--allow-unauthenticated"
+fi
+
+INGRESS_FLAG="--ingress=internal-and-cloud-load-balancing"
+if [ -n "${INGRESS:-}" ]; then
+  INGRESS_FLAG="--ingress=${INGRESS}"
+fi
+
+SA_FLAG="--service-account=vibe-guard-agent-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+if [ "${USE_DEFAULT_SA:-false}" = "true" ]; then
+  SA_FLAG=""
+fi
+
 gcloud run deploy "${SERVICE_NAME}" \
   --project="${PROJECT_ID}" \
   --region="${REGION}" \
   --image="${IMAGE_URI}" \
   --platform=managed \
-  --no-allow-unauthenticated \
-  --ingress=internal-and-cloud-load-balancing \
-  --service-account="vibe-guard-agent-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+  ${ALLOW_UNAUTH_FLAG} \
+  ${INGRESS_FLAG} \
+  ${SA_FLAG} \
   --port=8080 \
   --cpu=2 \
   --memory=2Gi \
   --concurrency=8 \
   --timeout=300 \
   --execution-environment=gen2 \
-  --set-env-vars="VIBE_GUARD_ENV=production,PYTHONUNBUFFERED=1,TMPDIR=/tmp"
+  --set-env-vars="VIBE_GUARD_ENV=production,PYTHONUNBUFFERED=1,PYTHONDONTWRITEBYTECODE=1,TMPDIR=/tmp,CALLER_ID=vibe-guard-auditor@gcp.sfeir.com"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
   --project="${PROJECT_ID}" \

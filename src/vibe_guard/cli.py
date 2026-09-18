@@ -8,6 +8,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+from vibe_guard import __version__
 from vibe_guard.audit.models import ScanAuditRecord
 from vibe_guard.audit.recorder import AuditRecorder
 from vibe_guard.engine.scanner import ScanEngine
@@ -219,6 +220,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="vibe-guard",
         description="Vibe Guard — Agent d'industrialisation et de sécurité du vibe coding",
+    )
+    parser.add_argument(
+        "--version",
+        "-v",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
 

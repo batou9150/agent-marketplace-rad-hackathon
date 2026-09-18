@@ -3,9 +3,13 @@
 import json
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import yaml
+from fastapi.testclient import TestClient
+
+from vibe_guard_a2ui.local_tester.server import app
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -117,10 +121,6 @@ def test_register_gemini_enterprise_payload_generation() -> None:
 
 
 def test_a2ui_server_routes_and_jsonrpc() -> None:
-    from fastapi.testclient import TestClient
-
-    from vibe_guard_a2ui.local_tester.server import app
-
     client = TestClient(app)
 
     # 1. Health check endpoint
@@ -200,3 +200,74 @@ def test_a2ui_server_routes_and_jsonrpc() -> None:
     assert "result" in scan_data
     scan_parts = scan_data["result"]["message"]["parts"]
     assert any("application/json+a2ui" in str(p.get("metadata", {})) for p in scan_parts)
+
+
+def test_a2ui_server_head_probes() -> None:
+    """Verify HEAD requests for Cloud Run health checking."""
+    client = TestClient(app)
+    assert client.head("/healthz").status_code == 200
+    assert client.head("/").status_code == 200
+
+
+def test_a2ui_server_deployed_mode_authenticated_scan(monkeypatch, tmp_path) -> None:
+    """Verify deployed mode resolves authenticated caller from headers and avoids 401/403."""
+    app_file = tmp_path / "app.py"
+    app_file.write_text("print('clean application')\n", encoding="utf-8")
+    archive_path = tmp_path / "sample.zip"
+    with zipfile.ZipFile(archive_path, "w") as zf:
+        zf.write(app_file, arcname="app.py")
+
+    monkeypatch.setenv("VIBE_GUARD_ENV", "production")
+    client = TestClient(app)
+
+    scan_resp = client.post(
+        "/jsonrpc",
+        headers={"X-Caller-ID": "auditor@gcp.sfeir.com"},
+        json={
+            "jsonrpc": "2.0",
+            "method": "message/send",
+            "params": {
+                "message": {
+                    "text": "scan",
+                    "parts": [
+                        {
+                            "data": {
+                                "action": "submit_scan",
+                                "repo_url": str(archive_path),
+                            }
+                        }
+                    ],
+                }
+            },
+            "id": "6",
+        },
+    )
+    assert scan_resp.status_code == 200
+    scan_data = scan_resp.json()
+    assert "result" in scan_data
+    result_text = scan_data["result"]["message"]["parts"][0].get("text", "")
+    assert "Error 401/403" not in result_text
+    assert "Vibe Guard Security Audit Completed" in result_text
+
+
+def test_a2ui_server_raw_git_url_detected_as_scan() -> None:
+    """Verify that pasting a repository path or git URL automatically triggers scan intent."""
+    client = TestClient(app)
+    resp = client.post(
+        "/jsonrpc",
+        json={
+            "jsonrpc": "2.0",
+            "method": "message/send",
+            "params": {
+                "message": {
+                    "text": "fixtures/conform/clean_python_app",
+                }
+            },
+            "id": "7",
+        },
+    )
+    assert resp.status_code == 200
+    resp_data = resp.json()
+    assert "result" in resp_data
+    result_text = resp_data["result"]["message"]["parts"][0].get("text", "")
+    assert "Vibe Guard Security Audit Completed" in result_text

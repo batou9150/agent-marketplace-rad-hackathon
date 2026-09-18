@@ -1,6 +1,8 @@
-"""Domain models for scan findings and bounded code snippets."""
-
 from dataclasses import dataclass, field
+
+from vibe_guard.rules.models import Severity as Severity
+
+__all__ = ["Finding", "Severity", "Snippet"]
 
 
 @dataclass(frozen=True)

@@ -30,7 +30,7 @@ def extract_action_context(parts: list[Any]) -> tuple[str | None, dict[str, Any]
         # Handle dict parts or protobuf/Pydantic object parts
         if isinstance(part, dict):
             metadata = part.get("metadata", {})
-            if metadata.get("mimeType") == "application/json+a2ui":
+            if metadata.get("mimeType") == "application/json+a2ui" or "data" in part:
                 data = part.get("data")
         elif hasattr(part, "root") and hasattr(part.root, "data"):
             metadata = getattr(part.root, "metadata", None)
@@ -39,7 +39,7 @@ def extract_action_context(parts: list[Any]) -> tuple[str | None, dict[str, Any]
                 if isinstance(metadata, dict)
                 else getattr(metadata, "mimeType", None)
             )
-            if mime == "application/json+a2ui":
+            if mime == "application/json+a2ui" or hasattr(part.root, "data"):
                 data = part.root.data
 
         if not data:
@@ -55,9 +55,17 @@ def extract_action_context(parts: list[Any]) -> tuple[str | None, dict[str, Any]
                 data = data["data"]
 
             action_data = data.get("action") or data.get("userAction") or data.get("event")
-            if isinstance(action_data, dict):
+            if isinstance(action_data, str):
+                action_context["action"] = action_data
+                action_context["event"] = action_data
+                for k, v in data.items():
+                    if k not in ("action", "userAction", "event"):
+                        action_context[k] = v
+            elif isinstance(action_data, dict):
                 if "event" in action_data and isinstance(action_data["event"], dict):
                     action_data = action_data["event"]
+                if "name" in action_data and isinstance(action_data["name"], str):
+                    action_context["name"] = action_data["name"]
 
                 ctx = action_data.get("context", {})
                 if isinstance(ctx, list):
@@ -78,6 +86,10 @@ def extract_action_context(parts: list[Any]) -> tuple[str | None, dict[str, Any]
                     if "message" in ctx:
                         action_query = str(ctx["message"])
                     action_context.update(ctx)
+            else:
+                # Flat dictionary of context values
+                for k, v in data.items():
+                    action_context[k] = v
 
     return action_query, action_context
 

@@ -1,5 +1,6 @@
 """Ephemeral workspace management, archive extraction, and Git cloning with C2 bounds."""
 
+import logging
 import os
 import shutil
 import stat
@@ -10,6 +11,8 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -181,8 +184,8 @@ class EphemeralWorkspace:
             "1",
             "--no-recurse-submodules",
         ]
-        if branch:
-            cmd.extend(["--branch", branch])
+        if branch and branch.strip():
+            cmd.extend(["--branch", branch.strip()])
         cmd.extend([git_url, str(self.path / "repo")])
 
         env = dict(os.environ)
@@ -205,12 +208,53 @@ class EphemeralWorkspace:
                 check=False,
             )
             if result.returncode != 0:
+                # If specific branch failed (e.g. main vs master),
+                # retry once with default remote HEAD
+                if branch and (
+                    "Remote branch" in result.stderr or "not found in upstream" in result.stderr
+                ):
+                    logger.warning(
+                        "Branch '%s' not found upstream. Retrying clone with default HEAD branch.",
+                        branch,
+                    )
+                    retry_cmd = [
+                        git_bin,
+                        "-c",
+                        "core.hooksPath=",
+                        "-c",
+                        "protocol.allow=never",
+                        "-c",
+                        "protocol.https.allow=always",
+                        "clone",
+                        "--depth",
+                        "1",
+                        "--no-recurse-submodules",
+                        git_url,
+                        str(self.path / "repo"),
+                    ]
+                    retry_result = subprocess.run(
+                        retry_cmd,
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        timeout=timeout,
+                        check=False,
+                    )
+                    if retry_result.returncode == 0:
+                        return self.path / "repo"
+                    err_msg = (
+                        retry_result.stderr.replace(token, "***") if token else retry_result.stderr
+                    )
+                    raise IngestionError(f"Git clone failed: {err_msg.strip()}")
+
                 # Mask token in error message
                 err_msg = result.stderr.replace(token, "***") if token else result.stderr
                 raise IngestionError(f"Git clone failed: {err_msg.strip()}")
         except subprocess.TimeoutExpired as exc:
             raise IngestionError(f"Git clone timed out after {timeout}s") from exc
         except Exception as exc:
+            if isinstance(exc, IngestionError):
+                raise
             raise IngestionError(f"Error during git clone: {exc}") from exc
         finally:
             if askpass_script:

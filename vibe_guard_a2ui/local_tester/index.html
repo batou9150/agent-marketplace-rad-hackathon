@@ -310,13 +310,27 @@
 
     <script>
         let sessionId = 'vibeguard_' + Math.random().toString(36).substring(2, 9);
+        let callerId = 'auditor@gcp.sfeir.com';
         let dataModel = {
             "/repo_url": "fixtures/nonconform/app_llm_injection",
             "/branch": "main",
             "/families": ["AUTH", "SECRETS", "LLM-GOV", "NET-ISO"]
         };
 
-        document.getElementById('session-display').innerText = 'Session: ' + sessionId;
+        function updateSessionDisplay() {
+            document.getElementById('session-display').innerHTML =
+                'Session: <code>' + sessionId + '</code> | Identity: <span style="color:var(--primary); font-weight:500;" title="Click to edit caller identity" onclick="editCallerId()">' + callerId + '</span>';
+        }
+
+        function editCallerId() {
+            const newCaller = prompt("Enter Caller Identity (e.g., your email / service account):", callerId);
+            if (newCaller && newCaller.trim()) {
+                callerId = newCaller.trim();
+                updateSessionDisplay();
+            }
+        }
+
+        updateSessionDisplay();
 
         document.getElementById('userInput').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') sendChatMessage();
@@ -324,7 +338,7 @@
 
         function startNewSession() {
             sessionId = 'vibeguard_' + Math.random().toString(36).substring(2, 9);
-            document.getElementById('session-display').innerText = 'Session: ' + sessionId;
+            updateSessionDisplay();
             document.getElementById('chat').innerHTML = '';
             document.getElementById('canvasContent').innerHTML = '<div style="text-align: center; color: var(--text-secondary); margin-top: 40px;">Canvas reset.</div>';
             sendJsonRpcMessage("Hello Vibe Guard");
@@ -338,6 +352,50 @@
 
             appendMessage('user', text);
             await sendJsonRpcMessage(text);
+        }
+
+        async function sendClientAction(eventName, extractedContext) {
+            let userPrompt = "Execute " + eventName;
+            if (eventName === 'submit_scan') {
+                userPrompt = "Scan repository " + (extractedContext.repo_url || "");
+            } else if (eventName === 'explain_finding') {
+                userPrompt = "Explain finding " + (extractedContext.finding_id || extractedContext.rule_id || "");
+            } else if (eventName === 'show_dashboard') {
+                userPrompt = "Restore security audit dashboard";
+            }
+
+            if (Array.isArray(extractedContext)) {
+                for (const item of extractedContext) {
+                    const key = item.key;
+                    if (item.value && item.value.literalString) {
+                        extractedContext[key] = item.value.literalString;
+                    }
+                    if (key === 'message' && extractedContext[key]) {
+                        userPrompt = extractedContext[key];
+                    }
+                }
+            }
+
+            appendMessage('user', userPrompt);
+
+            const payload = {
+                message: {
+                    text: userPrompt,
+                    parts: [
+                        {
+                            data: {
+                                action: {
+                                    name: eventName,
+                                    context: extractedContext
+                                }
+                            },
+                            metadata: { mimeType: "application/json+a2ui" }
+                        }
+                    ]
+                }
+            };
+
+            await sendJsonRpcPayload(payload);
         }
 
         async function triggerAction(actionDef) {
@@ -395,11 +453,15 @@
             try {
                 const response = await fetch('/jsonrpc', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Caller-ID': callerId,
+                        'X-User-Email': callerId
+                    },
                     body: JSON.stringify({
                         jsonrpc: '2.0',
                         method: 'message/send',
-                        params: { ...params, session_id: sessionId },
+                        params: { ...params, session_id: sessionId, caller_id: callerId, user_id: callerId },
                         id: Date.now()
                     })
                 });

@@ -3,6 +3,8 @@
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from vibe_guard.cli import main
 from vibe_guard.engine.models import Finding
 
@@ -191,3 +193,16 @@ def test_cli_scan_invalid_family(capsys) -> None:
     assert code == 2
     captured = capsys.readouterr()
     assert "Famille inconnue" in captured.err
+
+
+def test_cli_version(capsys) -> None:
+    """Verify that vibe-guard --version and -v print version and exit 0."""
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--version"])
+    assert excinfo.value.code == 0
+    captured = capsys.readouterr()
+    assert "vibe-guard 0.1.0" in captured.out or "0.1.0" in captured.out
+
+    with pytest.raises(SystemExit) as excinfo:
+        main(["-v"])
+    assert excinfo.value.code == 0
