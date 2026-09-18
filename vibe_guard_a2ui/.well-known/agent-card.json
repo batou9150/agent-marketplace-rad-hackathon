@@ -1,19 +1,33 @@
 {
+  "protocolVersion": "0.3.0",
   "name": "VibeGuardAgent",
   "description": "Autonomous security and compliance auditor for vibe-coded applications on Google Cloud Platform.",
   "version": "1.0.0",
   "url": "/jsonrpc",
   "preferredTransport": "JSONRPC",
+  "defaultInputModes": [
+    "text/plain",
+    "application/json+a2ui"
+  ],
+  "defaultOutputModes": [
+    "text/plain",
+    "application/json+a2ui"
+  ],
   "capabilities": {
     "streaming": false,
+    "pushNotifications": false,
+    "stateTransitionHistory": false,
     "extensions": [
       {
         "uri": "https://a2ui.org/a2a-extension/a2ui/v0.9",
-        "required": false
-      },
-      {
-        "uri": "https://a2ui.org/a2a-extension/a2ui/v0.8",
-        "required": false
+        "description": "Renders Vibe Guard audit surfaces as A2UI v0.9 Canvas components.",
+        "required": false,
+        "params": {
+          "supportedCatalogIds": [
+            "https://www.gstatic.com/vertexaisearch/a2ui/v0_9/gemini_enterprise_composite_catalog.json"
+          ],
+          "acceptsInlineCatalogs": false
+        }
       }
     ]
   },
@@ -21,12 +35,48 @@
     {
       "id": "scan_repository",
       "name": "Repository Security Audit",
-      "description": "Scan a vibe-coded repository or archive for vulnerabilities across AUTH, SECRETS, LLM-GOV, and NET-ISO."
+      "description": "Scan a vibe-coded repository or archive for vulnerabilities across AUTH, SECRETS, LLM-GOV, and NET-ISO.",
+      "tags": [
+        "security",
+        "sast",
+        "secrets",
+        "compliance",
+        "gcp"
+      ],
+      "examples": [
+        "Scan https://github.com/acme/checkout-api for security risks",
+        "Audit this archive for hardcoded secrets"
+      ],
+      "inputModes": [
+        "text/plain",
+        "application/json+a2ui"
+      ],
+      "outputModes": [
+        "text/plain",
+        "application/json+a2ui"
+      ]
     },
     {
       "id": "explain_finding",
       "name": "Remediation Explanation",
-      "description": "Provide bounded code context and GCP-native remediation instructions for detected non-conformities."
+      "description": "Provide bounded code context and GCP-native remediation instructions for detected non-conformities.",
+      "tags": [
+        "security",
+        "remediation",
+        "gcp"
+      ],
+      "examples": [
+        "Explain finding AUTH-001",
+        "How do I fix the hardcoded key in src/config.py?"
+      ],
+      "inputModes": [
+        "text/plain",
+        "application/json+a2ui"
+      ],
+      "outputModes": [
+        "text/plain",
+        "application/json+a2ui"
+      ]
     }
   ]
 }

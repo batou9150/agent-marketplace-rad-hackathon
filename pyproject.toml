@@ -21,6 +21,8 @@ dev = [
     "pytest-cov>=5.0.0",
     "ruff>=0.4.0",
     "pre-commit>=3.7.0",
+    # Validates every A2UI surface against the vendored A2UI v0.9 schemas.
+    "jsonschema>=4.22.0",
 ]
 
 [build-system]

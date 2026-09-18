@@ -2,9 +2,14 @@
 
 Conforms to the Gemini Enterprise Composite Catalog:
 https://www.gstatic.com/vertexaisearch/a2ui/v0_9/gemini_enterprise_composite_catalog.json
+
+A vendored copy of that catalog, of the A2UI v0.9 server-to-client message schema
+and of the shared common types lives in `vibe_guard_a2ui/schemas/`; every surface
+built here is validated against them by `tests/unit/test_a2ui_conformance.py`.
 """
 
 import json
+import uuid
 from typing import Any
 
 from vibe_guard.report.models import Report, ReportFinding
@@ -13,6 +18,8 @@ GE_CATALOG_ID = (
     "https://www.gstatic.com/vertexaisearch/a2ui/v0_9/gemini_enterprise_composite_catalog.json"
 )
 A2UI_DELIMITER = "---a2ui_JSON---"
+A2UI_VERSION = "v0.9"
+PRIMARY_COLOR = "#1A73E8"
 
 SEVERITY_BADGES = {
     "critical": "CRITICAL",
@@ -21,152 +28,186 @@ SEVERITY_BADGES = {
     "low": "LOW",
 }
 
+SEVERITY_COLORS = {
+    "critical": "#B3261E",
+    "high": "#C7601A",
+    "medium": "#8A6100",
+    "low": "#1A73E8",
+}
+
+
+def new_surface_id(prefix: str) -> str:
+    """Mint a fresh surface id.
+
+    Gemini Enterprise requires a new, unique `surfaceId` per response: re-sending
+    `createSurface` for a live surface is an error in the A2UI v0.9 spec, and the
+    Gemini Enterprise renderer misbehaves when an id is reused across responses.
+    """
+    return f"{prefix}-{uuid.uuid4().hex[:8]}"
+
 
 def wrap_a2ui_payload(messages: list[dict[str, Any]]) -> str:
     """Wrap A2UI message envelopes in the standard delimiter."""
     return f"{A2UI_DELIMITER}\n{json.dumps({'messages': messages}, indent=2)}"
 
 
-def build_scan_form_surface(surface_id: str = "scan_form_surface") -> dict[str, Any]:
+def _create_surface(surface_id: str) -> dict[str, Any]:
+    """Build the `createSurface` envelope shared by every Vibe Guard surface."""
+    return {
+        "version": A2UI_VERSION,
+        "createSurface": {
+            "surfaceId": surface_id,
+            "catalogId": GE_CATALOG_ID,
+            "theme": {"primaryColor": PRIMARY_COLOR},
+            "sendDataModel": True,
+        },
+    }
+
+
+def _update_components(surface_id: str, components: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build the `updateComponents` envelope for a surface."""
+    return {
+        "version": A2UI_VERSION,
+        "updateComponents": {"surfaceId": surface_id, "components": components},
+    }
+
+
+def _update_data_model(surface_id: str, path: str, value: Any) -> dict[str, Any]:
+    """Build the `updateDataModel` envelope for a surface."""
+    return {
+        "version": A2UI_VERSION,
+        "updateDataModel": {"surfaceId": surface_id, "path": path, "value": value},
+    }
+
+
+def _action(name: str, prompt: str, **context: Any) -> dict[str, Any]:
+    """Build an A2UI v0.9 server-side event action.
+
+    `context.prompt` is what the Gemini Enterprise client replays as the user's
+    chat message; the remaining entries are literals or `{"path": ...}` data
+    bindings resolved against the surface data model.
+    """
+    return {"event": {"name": name, "context": {"prompt": prompt, **context}}}
+
+
+def build_scan_form_surface(surface_id: str | None = None) -> dict[str, Any]:
     """Generate A2UI v0.9 surface for repository scan configuration."""
-    messages = [
+    surface_id = surface_id or new_surface_id("scan-form")
+    components: list[dict[str, Any]] = [
         {
-            "version": "v0.9",
-            "createSurface": {
-                "surfaceId": surface_id,
-                "catalogId": GE_CATALOG_ID,
-                "theme": {"primaryColor": "#1A73E8"},
-                "sendDataModel": True,
-            },
+            "id": "root",
+            "component": "Canvas",
+            "cardTitle": "Vibe Guard Audit",
+            "cardDescription": "Security scanner for vibe-coded applications",
+            "cardIcon": "security",
+            "autoOpen": True,
+            "children": ["main_card"],
         },
         {
-            "version": "v0.9",
-            "updateComponents": {
-                "surfaceId": surface_id,
-                "components": [
-                    {
-                        "id": "root",
-                        "component": "Canvas",
-                        "cardTitle": "Vibe Guard Audit",
-                        "cardDescription": "Security scanner for vibe-coded applications",
-                        "cardIcon": "security",
-                        "autoOpen": True,
-                        "children": ["main_card"],
-                    },
-                    {
-                        "id": "main_card",
-                        "component": "MaterialCard",
-                        "child": "main_col",
-                    },
-                    {
-                        "id": "main_col",
-                        "component": "MaterialColumn",
-                        "children": [
-                            "title_text",
-                            "desc_text",
-                            "divider_1",
-                            "input_repo_url",
-                            "input_branch",
-                            "family_picker",
-                            "divider_2",
-                            "btn_submit",
-                        ],
-                    },
-                    {
-                        "id": "title_text",
-                        "component": "MaterialText",
-                        "text": "Scan a Repository for Security Risks",
-                        "usageHint": "h2",
-                    },
-                    {
-                        "id": "desc_text",
-                        "component": "MaterialText",
-                        "text": (
-                            "Detect non-conformities across AUTH, SECRETS, LLM-GOV, "
-                            "and NET-ISO with GCP-native remediations."
-                        ),
-                        "usageHint": "body",
-                    },
-                    {"id": "divider_1", "component": "MaterialDivider"},
-                    {
-                        "id": "input_repo_url",
-                        "component": "MaterialInput",
-                        "label": "Repository URL or Archive Path",
-                        "placeholder": "https://github.com/org/repo.git or /path/to/archive.zip",
-                        "type": "text",
-                        "value": {"path": "/repo_url"},
-                    },
-                    {
-                        "id": "input_branch",
-                        "component": "MaterialInput",
-                        "label": "Branch / Git Reference (optional)",
-                        "placeholder": "main",
-                        "type": "text",
-                        "value": {"path": "/branch"},
-                    },
-                    {
-                        "id": "family_picker",
-                        "component": "ChoicePicker",
-                        "label": "Inspection Families",
-                        "variant": "multipleSelection",
-                        "options": [
-                            {"value": "AUTH", "label": "Authentication & IAM (AUTH)"},
-                            {"value": "SECRETS", "label": "Hardcoded Secrets (SECRETS)"},
-                            {"value": "LLM-GOV", "label": "LLM Governance (LLM-GOV)"},
-                            {"value": "NET-ISO", "label": "Network Isolation (NET-ISO)"},
-                        ],
-                        "value": {"path": "/families"},
-                    },
-                    {"id": "divider_2", "component": "MaterialDivider"},
-                    {
-                        "id": "btn_submit",
-                        "component": "MaterialButton",
-                        "child": "btn_text",
-                        "variant": "filled",
-                        "action": {
-                            "event": "submit_scan",
-                            "context": [
-                                {
-                                    "key": "message",
-                                    "value": {
-                                        "literalString": "Scan repository configured in form"
-                                    },
-                                },
-                                {"key": "repo_url", "value": {"path": "/repo_url"}},
-                                {"key": "branch", "value": {"path": "/branch"}},
-                                {"key": "families", "value": {"path": "/families"}},
-                            ],
-                        },
-                    },
-                    {
-                        "id": "btn_text",
-                        "component": "MaterialText",
-                        "text": "Launch Security Audit",
-                        "usageHint": "body",
-                    },
-                ],
-            },
+            "id": "main_card",
+            "component": "MaterialCard",
+            "children": ["main_col"],
         },
         {
-            "version": "v0.9",
-            "updateDataModel": {
-                "surfaceId": surface_id,
-                "path": "/",
-                "value": {
+            "id": "main_col",
+            "component": "MaterialColumn",
+            "align": "stretch",
+            "style": {"gap": "12px"},
+            "children": [
+                "title_text",
+                "desc_text",
+                "divider_1",
+                "input_repo_url",
+                "input_branch",
+                "family_picker",
+                "divider_2",
+                "btn_submit",
+            ],
+        },
+        {
+            "id": "title_text",
+            "component": "MaterialText",
+            "text": "Scan a Repository for Security Risks",
+            "usageHint": "h2",
+        },
+        {
+            "id": "desc_text",
+            "component": "MaterialText",
+            "text": (
+                "Detect non-conformities across AUTH, SECRETS, LLM-GOV, "
+                "and NET-ISO with GCP-native remediations."
+            ),
+            "usageHint": "body",
+        },
+        {"id": "divider_1", "component": "MaterialDivider"},
+        {
+            "id": "input_repo_url",
+            "component": "MaterialInput",
+            "label": "Repository URL or Archive Path",
+            "placeholder": "https://github.com/org/repo.git or /path/to/archive.zip",
+            "type": "text",
+            "value": {"path": "/repo_url"},
+        },
+        {
+            "id": "input_branch",
+            "component": "MaterialInput",
+            "label": "Branch / Git Reference (optional)",
+            "placeholder": "main",
+            "type": "text",
+            "value": {"path": "/branch"},
+        },
+        {
+            "id": "family_picker",
+            "component": "ChoicePicker",
+            "label": "Inspection Families",
+            "variant": "multipleSelection",
+            "options": [
+                {"value": "AUTH", "label": "Authentication & IAM (AUTH)"},
+                {"value": "SECRETS", "label": "Hardcoded Secrets (SECRETS)"},
+                {"value": "LLM-GOV", "label": "LLM Governance (LLM-GOV)"},
+                {"value": "NET-ISO", "label": "Network Isolation (NET-ISO)"},
+            ],
+            "value": {"path": "/families"},
+        },
+        {"id": "divider_2", "component": "MaterialDivider"},
+        {
+            "id": "btn_submit",
+            "component": "MaterialButton",
+            "label": "Launch Security Audit",
+            "appearance": "filled",
+            "color": "primary",
+            "action": _action(
+                "submit_scan",
+                "Scan the repository configured in the form",
+                repo_url={"path": "/repo_url"},
+                branch={"path": "/branch"},
+                families={"path": "/families"},
+            ),
+        },
+    ]
+
+    return {
+        "messages": [
+            _create_surface(surface_id),
+            _update_components(surface_id, components),
+            _update_data_model(
+                surface_id,
+                "/",
+                {
                     "repo_url": "",
                     "branch": "main",
                     "families": ["AUTH", "SECRETS", "LLM-GOV", "NET-ISO"],
                 },
-            },
-        },
-    ]
-    return {"messages": messages}
+            ),
+        ]
+    }
 
 
-def build_dashboard_canvas_surface(
-    report: Report, surface_id: str = "dashboard_canvas_surface"
-) -> dict[str, Any]:
+def build_dashboard_canvas_surface(report: Report, surface_id: str | None = None) -> dict[str, Any]:
     """Generate A2UI v0.9 interactive Canvas security report dashboard."""
+    surface_id = surface_id or new_surface_id("dashboard")
+    finding_card_ids = [f"finding_card_{idx}" for idx in range(len(report.findings))]
+
     components: list[dict[str, Any]] = [
         {
             "id": "root",
@@ -184,11 +225,13 @@ def build_dashboard_canvas_surface(
         {
             "id": "metrics_card",
             "component": "MaterialCard",
-            "child": "metrics_col",
+            "children": ["metrics_col"],
         },
         {
             "id": "metrics_col",
             "component": "MaterialColumn",
+            "align": "stretch",
+            "style": {"gap": "8px"},
             "children": [
                 "metrics_title",
                 "metrics_row",
@@ -204,7 +247,7 @@ def build_dashboard_canvas_surface(
         {
             "id": "metrics_row",
             "component": "MaterialRow",
-            "distribution": "spaceAround",
+            "justify": "spaceAround",
             "children": [
                 "badge_crit",
                 "badge_high",
@@ -250,35 +293,35 @@ def build_dashboard_canvas_surface(
         {
             "id": "findings_container",
             "component": "MaterialColumn",
-            "children": [],
+            "align": "stretch",
+            "style": {"gap": "12px"},
+            "children": finding_card_ids,
         },
     ]
 
-    finding_card_ids: list[str] = []
-
     for idx, finding in enumerate(report.findings):
-        card_id = f"finding_card_{idx}"
+        card_id = finding_card_ids[idx]
         col_id = f"finding_col_{idx}"
         title_id = f"finding_title_{idx}"
         meta_id = f"finding_meta_{idx}"
         msg_id = f"finding_msg_{idx}"
         btn_id = f"finding_btn_{idx}"
-        btn_text_id = f"finding_btn_txt_{idx}"
 
-        finding_card_ids.append(card_id)
-
-        sev_badge = SEVERITY_BADGES.get(finding.severity.lower(), finding.severity.upper())
+        severity = finding.severity.lower()
+        sev_badge = SEVERITY_BADGES.get(severity, finding.severity.upper())
 
         components.extend(
             [
                 {
                     "id": card_id,
                     "component": "MaterialCard",
-                    "child": col_id,
+                    "children": [col_id],
                 },
                 {
                     "id": col_id,
                     "component": "MaterialColumn",
+                    "align": "stretch",
+                    "style": {"gap": "4px"},
                     "children": [title_id, meta_id, msg_id, btn_id],
                 },
                 {
@@ -286,6 +329,7 @@ def build_dashboard_canvas_surface(
                     "component": "MaterialText",
                     "text": f"[{sev_badge}] {finding.title}",
                     "usageHint": "h3",
+                    "style": {"color": SEVERITY_COLORS.get(severity, "#1F1F1F")},
                 },
                 {
                     "id": meta_id,
@@ -306,84 +350,39 @@ def build_dashboard_canvas_surface(
                 {
                     "id": btn_id,
                     "component": "MaterialButton",
-                    "child": btn_text_id,
-                    "variant": "outlined",
-                    "action": {
-                        "event": "explain_finding",
-                        "context": [
-                            {
-                                "key": "message",
-                                "value": {
-                                    "literalString": (
-                                        f"Explain finding {finding.rule_id} in {finding.file_path}"
-                                    )
-                                },
-                            },
-                            {
-                                "key": "finding_id",
-                                "value": {"literalString": finding.finding_id},
-                            },
-                            {
-                                "key": "rule_id",
-                                "value": {"literalString": finding.rule_id},
-                            },
-                        ],
-                    },
-                },
-                {
-                    "id": btn_text_id,
-                    "component": "MaterialText",
-                    "text": "Inspect & Remediate (GCP)",
-                    "usageHint": "body",
+                    "label": "Inspect & Remediate (GCP)",
+                    "appearance": "outlined",
+                    "action": _action(
+                        "explain_finding",
+                        f"Explain finding {finding.rule_id} in {finding.file_path}",
+                        finding_id=finding.finding_id,
+                        rule_id=finding.rule_id,
+                    ),
                 },
             ]
         )
 
-    # Attach finding card IDs to the findings container
-    for comp in components:
-        if comp["id"] == "findings_container":
-            comp["children"] = finding_card_ids
-            break
-
-    messages = [
-        {
-            "version": "v0.9",
-            "createSurface": {
-                "surfaceId": surface_id,
-                "catalogId": GE_CATALOG_ID,
-                "theme": {"primaryColor": "#1A73E8"},
-                "sendDataModel": True,
-            },
-        },
-        {
-            "version": "v0.9",
-            "updateComponents": {
-                "surfaceId": surface_id,
-                "components": components,
-            },
-        },
-        {
-            "version": "v0.9",
-            "updateDataModel": {
-                "surfaceId": surface_id,
-                "path": "/summary",
-                "value": {
+    return {
+        "messages": [
+            _create_surface(surface_id),
+            _update_components(surface_id, components),
+            _update_data_model(
+                surface_id,
+                "/summary",
+                {
                     "total": report.summary.total_findings,
                     "scan_id": report.metadata.scan_id,
                 },
-            },
-        },
-    ]
-
-    return {"messages": messages}
+            ),
+        ]
+    }
 
 
 def build_finding_detail_surface(
     finding: ReportFinding, surface_id: str | None = None
 ) -> dict[str, Any]:
     """Generate A2UI v0.9 surface for in-depth remediation details."""
-    if surface_id is None:
-        surface_id = f"detail_{finding.finding_id[:8]}"
+    surface_id = surface_id or new_surface_id("detail")
 
     snippet_content = finding.snippet.content if finding.snippet else "Snippet not available."
     remediation_steps_text = "\n".join(
@@ -403,11 +402,13 @@ def build_finding_detail_surface(
         {
             "id": "detail_card",
             "component": "MaterialCard",
-            "child": "detail_col",
+            "children": ["detail_col"],
         },
         {
             "id": "detail_col",
             "component": "MaterialColumn",
+            "align": "stretch",
+            "style": {"gap": "8px"},
             "children": [
                 "detail_title",
                 "detail_loc",
@@ -428,6 +429,7 @@ def build_finding_detail_surface(
             "component": "MaterialText",
             "text": f"[{finding.severity.upper()}] {finding.title}",
             "usageHint": "h2",
+            "style": {"color": SEVERITY_COLORS.get(finding.severity.lower(), "#1F1F1F")},
         },
         {
             "id": "detail_loc",
@@ -449,6 +451,14 @@ def build_finding_detail_surface(
             "component": "MaterialText",
             "text": snippet_content,
             "usageHint": "body",
+            "style": {
+                "fontFamily": "monospace",
+                "whiteSpace": "pre-wrap",
+                "backgroundColor": "#F1F3F4",
+                "borderRadius": "6px",
+                "padding": "8px",
+                "overflowX": "auto",
+            },
         },
         {"id": "divider_2", "component": "MaterialDivider"},
         {
@@ -468,6 +478,7 @@ def build_finding_detail_surface(
             "component": "MaterialText",
             "text": remediation_steps_text,
             "usageHint": "body",
+            "style": {"whiteSpace": "pre-wrap"},
         },
         {
             "id": "remed_service",
@@ -479,43 +490,15 @@ def build_finding_detail_surface(
         {
             "id": "btn_back",
             "component": "MaterialButton",
-            "child": "btn_back_txt",
-            "variant": "outlined",
-            "action": {
-                "event": "show_dashboard",
-                "context": [
-                    {
-                        "key": "message",
-                        "value": {"literalString": "Show security scan dashboard"},
-                    }
-                ],
-            },
-        },
-        {
-            "id": "btn_back_txt",
-            "component": "MaterialText",
-            "text": "← Back to Dashboard",
-            "usageHint": "body",
+            "label": "← Back to Dashboard",
+            "appearance": "outlined",
+            "action": _action("show_dashboard", "Show the security scan dashboard"),
         },
     ]
 
-    messages = [
-        {
-            "version": "v0.9",
-            "createSurface": {
-                "surfaceId": surface_id,
-                "catalogId": GE_CATALOG_ID,
-                "theme": {"primaryColor": "#1A73E8"},
-                "sendDataModel": True,
-            },
-        },
-        {
-            "version": "v0.9",
-            "updateComponents": {
-                "surfaceId": surface_id,
-                "components": components,
-            },
-        },
-    ]
-
-    return {"messages": messages}
+    return {
+        "messages": [
+            _create_surface(surface_id),
+            _update_components(surface_id, components),
+        ]
+    }

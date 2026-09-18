@@ -37,7 +37,7 @@ def test_render_scan_form():
 
     text, ui_messages = split_a2ui_payload(result)
     assert len(ui_messages) == 3
-    assert ui_messages[0]["createSurface"]["surfaceId"] == "scan_form_surface"
+    assert ui_messages[0]["createSurface"]["surfaceId"].startswith("scan-form-")
 
 
 def test_scan_and_explain_finding_flow():
@@ -55,7 +55,7 @@ def test_scan_and_explain_finding_flow():
     text, ui_messages = split_a2ui_payload(scan_result)
     assert len(ui_messages) == 3
     create_surface = ui_messages[0]["createSurface"]
-    assert create_surface["surfaceId"] == "dashboard_canvas_surface"
+    assert create_surface["surfaceId"].startswith("dashboard-")
 
     update_comps = ui_messages[1]["updateComponents"]
     comps = update_comps["components"]
@@ -70,14 +70,13 @@ def test_scan_and_explain_finding_flow():
     # Step 3: Explain finding (SPEC-AGT-3: should succeed from cached session report)
     # Find one of the finding cards in components
     explain_btn = next(
-        (c for c in comps if c.get("action", {}).get("event") == "explain_finding"),
+        (c for c in comps if c.get("action", {}).get("event", {}).get("name") == "explain_finding"),
         None,
     )
     assert explain_btn is not None, "Dashboard should contain explain_finding action buttons"
 
-    btn_context = explain_btn["action"]["context"]
-    rule_id_item = next(item for item in btn_context if item["key"] == "rule_id")
-    target_rule_id = rule_id_item["value"]["literalString"]
+    btn_context = explain_btn["action"]["event"]["context"]
+    target_rule_id = btn_context["rule_id"]
 
     explain_result = explain_finding(finding_id=target_rule_id)
     assert f"Remediation Analysis: {target_rule_id}" in explain_result
@@ -86,11 +85,39 @@ def test_scan_and_explain_finding_flow():
 
     detail_text, detail_messages = split_a2ui_payload(explain_result)
     assert len(detail_messages) == 2
-    assert detail_messages[0]["createSurface"]["surfaceId"].startswith("detail_")
+    assert detail_messages[0]["createSurface"]["surfaceId"].startswith("detail-")
 
 
 def test_action_context_extraction():
-    """Verify agent_executor extracts action events from Gemini Enterprise DataParts."""
+    """Verify agent_executor extracts A2UI v0.9 client actions from DataParts.
+
+    Gemini Enterprise sends `{"version": "v0.9", "action": {"name", "context"}}`
+    with `context` as an object whose `prompt` is replayed as the chat message.
+    """
+    mock_part = {
+        "metadata": {"mimeType": "application/json+a2ui"},
+        "data": {
+            "version": "v0.9",
+            "action": {
+                "name": "submit_scan",
+                "context": {
+                    "prompt": "Scan the repository configured in the form",
+                    "repo_url": "https://github.com/vibe/app.git",
+                    "families": ["AUTH", "SECRETS"],
+                },
+            },
+        },
+    }
+
+    name, query, context = extract_action_context([mock_part])
+    assert name == "submit_scan"
+    assert query == "Scan the repository configured in the form"
+    assert context["repo_url"] == "https://github.com/vibe/app.git"
+    assert context["families"] == ["AUTH", "SECRETS"]
+
+
+def test_action_context_extraction_legacy_pair_list():
+    """Older clients sent `context` as a list of key/value pairs; still accepted."""
     mock_part = {
         "metadata": {"mimeType": "application/json+a2ui"},
         "data": {
@@ -111,7 +138,8 @@ def test_action_context_extraction():
         },
     }
 
-    query, context = extract_action_context([mock_part])
+    name, query, context = extract_action_context([mock_part])
+    assert name == "submit_scan"
     assert query == "Scan repository configured in form"
     assert context["repo_url"] == "https://github.com/vibe/app.git"
     assert context["families"] == "AUTH,SECRETS"

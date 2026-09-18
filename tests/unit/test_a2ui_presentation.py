@@ -113,9 +113,12 @@ def test_build_dashboard_canvas_surface():
     finding_card = next(c for c in components if c["id"] == "finding_card_0")
     assert finding_card["component"] == "MaterialCard"
 
-    # Check action event is explain_finding
+    # Check action event is explain_finding (A2UI v0.9: event is an object)
     btn = next(c for c in components if c["id"] == "finding_btn_0")
-    assert btn["action"]["event"] == "explain_finding"
+    event = btn["action"]["event"]
+    assert event["name"] == "explain_finding"
+    assert event["context"]["rule_id"] == "AUTH-001"
+    assert event["context"]["prompt"]
 
 
 def test_build_finding_detail_surface():

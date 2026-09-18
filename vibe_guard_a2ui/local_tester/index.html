@@ -312,7 +312,7 @@
         let sessionId = 'vibeguard_' + Math.random().toString(36).substring(2, 9);
         let callerId = 'auditor@gcp.sfeir.com';
         let dataModel = {
-            "/repo_url": "fixtures/nonconform/app_llm_injection",
+            "/repo_url": "",
             "/branch": "main",
             "/families": ["AUTH", "SECRETS", "LLM-GOV", "NET-ISO"]
         };
@@ -400,27 +400,23 @@
 
         async function triggerAction(actionDef) {
             console.log("Triggering action:", actionDef);
-            const eventName = actionDef.event || actionDef.name || "action";
-            const contextArray = actionDef.context || [];
+            // A2UI v0.9: action.event is an object { name, context }, and context
+            // is a map whose values are literals or { "path": "/..." } bindings.
+            const event = actionDef.event || {};
+            const eventName = event.name || "action";
+            const rawContext = event.context || {};
 
-            const extractedContext = { event: eventName };
-            let userPrompt = "Action triggered: " + eventName;
-
-            if (Array.isArray(contextArray)) {
-                for (const item of contextArray) {
-                    const key = item.key;
-                    if (item.value) {
-                        if (item.value.literalString !== undefined) {
-                            extractedContext[key] = item.value.literalString;
-                        } else if (item.value.path !== undefined) {
-                            extractedContext[key] = dataModel[item.value.path];
-                        }
-                    }
-                    if (key === 'message' && extractedContext[key]) {
-                        userPrompt = extractedContext[key];
-                    }
+            const resolvedContext = {};
+            for (const [key, value] of Object.entries(rawContext)) {
+                if (value && typeof value === 'object' && !Array.isArray(value) && 'path' in value) {
+                    resolvedContext[key] = dataModel[value.path];
+                } else {
+                    resolvedContext[key] = value;
                 }
             }
+
+            // The client replays context.prompt as the user's chat message.
+            const userPrompt = resolvedContext.prompt || ("Action triggered: " + eventName);
 
             appendMessage('user', userPrompt);
 
@@ -430,9 +426,10 @@
                     parts: [
                         {
                             data: {
+                                version: "v0.9",
                                 action: {
                                     name: eventName,
-                                    context: extractedContext
+                                    context: resolvedContext
                                 }
                             },
                             metadata: { mimeType: "application/json+a2ui" }
@@ -525,8 +522,20 @@
             canvasContent.innerHTML = '';
 
             for (const env of envelopes) {
-                if (env.updateDataModel && env.updateDataModel.value) {
-                    Object.assign(dataModel, env.updateDataModel.value);
+                if (env.updateDataModel && env.updateDataModel.value !== undefined) {
+                    // Bindings address the data model by JSON Pointer, so flatten
+                    // the update onto pointer keys rooted at updateDataModel.path.
+                    const base = (env.updateDataModel.path || '/').replace(/\/$/, '');
+                    const flatten = (node, prefix) => {
+                        if (node && typeof node === 'object' && !Array.isArray(node)) {
+                            for (const [key, value] of Object.entries(node)) {
+                                flatten(value, prefix + '/' + key);
+                            }
+                        } else {
+                            dataModel[prefix] = node;
+                        }
+                    };
+                    flatten(env.updateDataModel.value, base);
                 }
 
                 if (env.updateComponents && env.updateComponents.components) {
@@ -562,8 +571,8 @@
             if (type === 'MaterialCard') {
                 const card = document.createElement('div');
                 card.className = 'material-card';
-                if (comp.child) {
-                    const child = renderComponent(comp.child, components);
+                for (const childId of (comp.children || [])) {
+                    const child = renderComponent(childId, components);
                     if (child) card.appendChild(child);
                 }
                 return card;
@@ -581,7 +590,7 @@
 
             if (type === 'MaterialRow') {
                 const row = document.createElement('div');
-                row.className = 'material-row ' + (comp.distribution || '');
+                row.className = 'material-row ' + (comp.justify || '');
                 for (const childId of (comp.children || [])) {
                     const child = renderComponent(childId, components);
                     if (child) row.appendChild(child);
@@ -664,14 +673,8 @@
 
             if (type === 'MaterialButton') {
                 const btn = document.createElement('button');
-                btn.className = 'material-button ' + (comp.variant || 'filled');
-
-                if (comp.child) {
-                    const child = renderComponent(comp.child, components);
-                    if (child) btn.appendChild(child);
-                } else {
-                    btn.innerText = comp.label || 'Action';
-                }
+                btn.className = 'material-button ' + (comp.appearance || comp.variant || 'filled');
+                btn.innerText = comp.label || 'Action';
 
                 if (comp.action) {
                     btn.onclick = () => triggerAction(comp.action);

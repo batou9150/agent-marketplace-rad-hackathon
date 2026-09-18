@@ -46,17 +46,20 @@ COPY --from=builder /usr/local/bin/gitleaks /usr/local/bin/gitleaks
 
 WORKDIR /app
 
-# Install Python dependencies including Semgrep and Google ADK
+# Install Python dependencies including Semgrep and Google ADK.
+# The floors below must stay in step with pyproject.toml: `google-adk>=2.9.1`
+# is what pulls in the a2a-sdk that `agent_executor.py` imports at module load,
+# so a looser floor would resolve to an ADK without A2A and crash on startup.
 COPY pyproject.toml .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir \
     "semgrep==1.70.0" \
-    "google-adk>=0.1.0" \
-    "google-genai>=0.1.0" \
+    "google-adk>=2.9.1" \
+    "google-genai>=1.0.0" \
     "fastapi>=0.115.0" \
     "uvicorn>=0.30.0" \
     "pydantic>=2.7.0" \
-    "pyyaml>=6.0" \
+    "pyyaml>=6.0.1" \
     "python-dotenv>=1.0.0"
 
 # Copy application source code, rule packs, and demo fixtures
@@ -70,7 +73,7 @@ RUN chown -R ${USERNAME}:${USERNAME} /app /tmp
 
 # Environment configuration
 # SPEC-DEP-4 & A2UI Cloud Run Deployer wiring:
-# 1. PYTHONPATH contains vibe_guard_a2ui so sitecustomize.py is auto-loaded by Python
+# 1. PYTHONPATH exposes the agent package and the vibe_guard engine to the server
 ENV PYTHONPATH="/app:/app/src:/app/vibe_guard_a2ui:$PYTHONPATH"
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1

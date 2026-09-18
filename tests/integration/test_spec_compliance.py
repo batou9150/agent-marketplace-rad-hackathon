@@ -472,7 +472,7 @@ def test_spec_aud_4_caller_id_resolution_deployed_and_local(monkeypatch, tmp_pat
     and anonymous in local.
     """
     from vibe_guard.cli import main
-    from vibe_guard_a2ui.agent import _retrieve_report, scan_repository
+    from vibe_guard_a2ui.agent import _retrieve_report, scan_repository, session_scope
 
     repo_root = Path(__file__).parents[2]
     clean_target = repo_root / "fixtures" / "conform" / "clean_python_app"
@@ -518,11 +518,20 @@ def test_spec_aud_4_caller_id_resolution_deployed_and_local(monkeypatch, tmp_pat
     with zipfile.ZipFile(sample_zip, "w") as zf:
         zf.writestr("app.py", "print('hello')\n")
 
-    auth_res = scan_repository(source=str(sample_zip), no_llm=True)
-    assert "Vibe Guard Security Audit Completed" in auth_res
-    deployed_report = _retrieve_report(None)
-    assert deployed_report is not None
-    assert deployed_report.metadata.caller_id == "alice@enterprise.example.com"
+    # In deployed mode the cached report is scoped to the caller's session, so a
+    # transport must bind one; without it the cache is bypassed rather than
+    # shared between callers on the same replica.
+    with session_scope("alice-session"):
+        auth_res = scan_repository(source=str(sample_zip), no_llm=True)
+        assert "Vibe Guard Security Audit Completed" in auth_res
+        deployed_report = _retrieve_report(None)
+        assert deployed_report is not None
+        assert deployed_report.metadata.caller_id == "alice@enterprise.example.com"
+
+    # 5. Deployed mode leaks no report to a caller outside that session
+    assert _retrieve_report(None) is None
+    with session_scope("mallory-session"):
+        assert _retrieve_report(None) is None
 
 
 def test_spec_ops_6_no_fabricated_metrics():

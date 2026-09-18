@@ -4,11 +4,13 @@ Conforms to SPEC-AGT-1, SPEC-AGT-2, and SPEC-AGT-3.
 """
 
 import contextlib
+import contextvars
 import json
 import logging
 import os
 import time
 import uuid
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
@@ -34,8 +36,36 @@ from vibe_guard_a2ui.a2ui_presentation import (
 
 logger = logging.getLogger(__name__)
 
-# Fallback session cache for environments where ToolContext.state is ephemeral
-_SESSION_REPORTS: dict[str, Report] = {}
+# Fallback session cache for environments where ToolContext.state is ephemeral.
+# Bounded: one Cloud Run replica serves many conversations and reports are large.
+_MAX_CACHED_REPORTS = 64
+_SESSION_REPORTS: OrderedDict[str, Report] = OrderedDict()
+
+# Session identity supplied by the transport (A2A executor, local tester) for the
+# duration of one request. Reports are cached per session key; without one, a
+# deployed replica would serve every caller the same report.
+_SESSION_KEY: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "vibe_guard_session_key", default=None
+)
+
+
+def _is_deployed() -> bool:
+    """True when running in a deployed (multi-tenant) environment."""
+    return os.environ.get("VIBE_GUARD_ENV", "development").lower() == "production"
+
+
+@contextlib.contextmanager
+def session_scope(session_key: str | None):
+    """Bind the current request to a session key for the duration of the block.
+
+    Transports must wrap each incoming request in this scope so that cached
+    reports are isolated per conversation.
+    """
+    token = _SESSION_KEY.set(session_key)
+    try:
+        yield
+    finally:
+        _SESSION_KEY.reset(token)
 
 
 def _find_rules_directory() -> Path:
@@ -50,24 +80,40 @@ def _find_rules_directory() -> Path:
     raise FileNotFoundError("Could not locate Vibe Guard rules directory with pack.yaml")
 
 
-def _get_session_id(tool_context: ToolContext | None) -> str:
-    """Extract or generate a session ID."""
-    if tool_context and hasattr(tool_context, "session") and tool_context.session:
-        return getattr(tool_context.session, "id", "default_session")
-    return "default_session"
+def _get_session_id(tool_context: ToolContext | None) -> str | None:
+    """Resolve the cache key isolating this conversation's report.
+
+    Returns None when nothing identifies the caller in a deployed environment,
+    in which case the process-local cache is bypassed entirely rather than
+    handing one caller another caller's report.
+    """
+    session = getattr(tool_context, "session", None) if tool_context else None
+    session_id = getattr(session, "id", None) if session else None
+    if session_id:
+        return str(session_id)
+
+    session_key = _SESSION_KEY.get()
+    if session_key:
+        return str(session_key)
+
+    # Single-process local use (CLI, tests, `adk web`): one conversation only.
+    return None if _is_deployed() else "local"
 
 
 def _store_report(report: Report, tool_context: ToolContext | None) -> None:
-    """Store report in session state and in-memory cache."""
+    """Store report in session state and in the bounded per-session cache."""
     session_id = _get_session_id(tool_context)
-    _SESSION_REPORTS[session_id] = report
+    if session_id:
+        _SESSION_REPORTS[session_id] = report
+        _SESSION_REPORTS.move_to_end(session_id)
+        while len(_SESSION_REPORTS) > _MAX_CACHED_REPORTS:
+            _SESSION_REPORTS.popitem(last=False)
     if tool_context and hasattr(tool_context, "state") and tool_context.state is not None:
         tool_context.state["latest_report"] = report.model_dump_json()
 
 
 def _retrieve_report(tool_context: ToolContext | None) -> Report | None:
-    """Retrieve report from session state or in-memory cache."""
-    session_id = _get_session_id(tool_context)
+    """Retrieve report from session state or the per-session cache."""
     if tool_context and hasattr(tool_context, "state") and tool_context.state is not None:
         raw_json = tool_context.state.get("latest_report")
         if raw_json:
@@ -75,8 +121,15 @@ def _retrieve_report(tool_context: ToolContext | None) -> Report | None:
                 data = json.loads(raw_json)
                 return Report.model_validate(data)
             except Exception as e:
-                logger.warning(f"Failed to deserialized report from session state: {e}")
-    return _SESSION_REPORTS.get(session_id)
+                logger.warning(f"Failed to deserialize report from session state: {e}")
+
+    session_id = _get_session_id(tool_context)
+    if not session_id:
+        return None
+    report = _SESSION_REPORTS.get(session_id)
+    if report is not None:
+        _SESSION_REPORTS.move_to_end(session_id)
+    return report
 
 
 def render_scan_form(tool_context: ToolContext | None = None) -> str:
@@ -95,6 +148,47 @@ def render_scan_form(tool_context: ToolContext | None = None) -> str:
     return f"{greeting}\n\n{wrap_a2ui_payload(ui_envelope['messages'])}"
 
 
+IAP_PUBLIC_KEYS_URL = "https://www.gstatic.com/iap/verify/public_key"
+
+
+def _email_from_iap_assertion(assertion: str | None) -> str | None:
+    """Verify an IAP JWT assertion and return its `email` claim.
+
+    The assertion is only honoured once its signature and audience are verified
+    against the IAP public keys, so a forged header cannot fabricate an identity
+    in the audit trail. Requires `IAP_JWT_AUDIENCE` (the Cloud Run / backend
+    service audience shown in the IAP console); without it the assertion is
+    ignored rather than trusted.
+    """
+    if not assertion:
+        return None
+
+    audience = os.environ.get("IAP_JWT_AUDIENCE")
+    if not audience:
+        logger.warning(
+            "Received an IAP JWT assertion but IAP_JWT_AUDIENCE is not set; "
+            "ignoring it rather than trusting an unverified token."
+        )
+        return None
+
+    try:
+        from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token
+
+        claims = id_token.verify_token(
+            assertion,
+            google_requests.Request(),
+            audience=audience,
+            certs_url=IAP_PUBLIC_KEYS_URL,
+        )
+    except Exception as exc:
+        logger.warning(f"Rejected IAP JWT assertion: {exc}")
+        return None
+
+    email = claims.get("email")
+    return str(email) if email else None
+
+
 def resolve_caller_id(tool_context: Any = None, is_deployed: bool = False) -> str:
     """Resolve caller identity (SPEC-AUD-4).
 
@@ -107,12 +201,14 @@ def resolve_caller_id(tool_context: Any = None, is_deployed: bool = False) -> st
         if hasattr(tool_context, "user_id") and tool_context.user_id:
             caller_id = tool_context.user_id
         elif hasattr(tool_context, "headers") and isinstance(tool_context.headers, dict):
-            headers = tool_context.headers
-            caller_id = (
-                headers.get("x-goog-authenticated-user-email")
-                or headers.get("X-Goog-Authenticated-User-Email")
-                or headers.get("x-goog-iap-jwt-assertion")
-            )
+            headers = {str(k).lower(): v for k, v in tool_context.headers.items()}
+            # Only the IAP-asserted email is usable as an identity. IAP strips any
+            # client-supplied copy of this header before forwarding the request.
+            # The raw `x-goog-iap-jwt-assertion` is a signed token, not an
+            # identity: it is only trusted once its `email` claim is verified.
+            caller_id = headers.get("x-goog-authenticated-user-email")
+            if not caller_id:
+                caller_id = _email_from_iap_assertion(headers.get("x-goog-iap-jwt-assertion"))
 
     if not caller_id and is_deployed:
         caller_id = (
