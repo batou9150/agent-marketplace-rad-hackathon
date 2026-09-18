@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Guard — A2UI Local Tester (Gemini Enterprise)</title>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-hover: #1557b0;
+            --bg: #f8f9fa;
+            --surface: #ffffff;
+            --border: #dadce0;
+            --text-primary: #202124;
+            --text-secondary: #5f6368;
+            --danger: #d93025;
+            --warning: #f29900;
+            --success: #1e8e3e;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .layout {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+        /* Chat Panel (Left) */
+        .chat-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            background: var(--surface);
+            height: 100%;
+        }
+        .header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            font-size: 1.15rem;
+            margin: 0;
+            font-weight: 600;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .session-info {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .message.user {
+            align-self: flex-end;
+            background: #e8f0fe;
+            color: #174ea6;
+        }
+        .message.agent {
+            align-self: flex-start;
+            background: #ffffff;
+            border: 1px solid var(--border);
+        }
+        .input-bar {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            background: var(--surface);
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.95rem;
+            outline: none;
+        }
+        input[type="text"]:focus {
+            border-color: var(--primary);
+        }
+        button.btn-send {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        button.btn-send:hover {
+            background: var(--primary-hover);
+        }
+        /* Canvas Side-Panel (Right) */
+        .canvas-panel {
+            width: 520px;
+            background: #f1f3f4;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid var(--border);
+            transition: width 0.3s ease;
+        }
+        .canvas-header {
+            padding: 16px 20px;
+            background: white;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .canvas-header h2 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .canvas-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        /* A2UI Material Components */
+        .material-card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(60,64,67,.08);
+            margin-bottom: 12px;
+        }
+        .material-column {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .material-row {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            align-items: center;
+        }
+        .material-row.spaceAround {
+            justify-content: space-around;
+        }
+        .material-text.h1 { font-size: 1.4rem; font-weight: 600; margin: 0; }
+        .material-text.h2 { font-size: 1.2rem; font-weight: 600; margin: 0; }
+        .material-text.h3 { font-size: 1.0rem; font-weight: 600; margin: 0; }
+        .material-text.body { font-size: 0.9rem; line-height: 1.4; color: var(--text-primary); }
+        .material-text.caption { font-size: 0.8rem; color: var(--text-secondary); }
+        .material-divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 6px 0;
+        }
+        .material-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .material-input-group label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        .material-input-group input {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+        .material-button {
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 500;
+            text-align: center;
+            border: 1px solid transparent;
+            transition: background 0.2s;
+        }
+        .material-button.filled {
+            background: var(--primary);
+            color: white;
+        }
+        .material-button.filled:hover {
+            background: var(--primary-hover);
+        }
+        .material-button.outlined {
+            background: transparent;
+            border-color: var(--border);
+            color: var(--primary);
+        }
+        .material-button.outlined:hover {
+            background: #f1f3f4;
+        }
+        .choice-picker {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .choice-picker label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        .choice-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .choice-chip {
+            padding: 6px 12px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: white;
+            font-size: 0.82rem;
+            cursor: pointer;
+            user-select: none;
+        }
+        .choice-chip.selected {
+            background: #e8f0fe;
+            border-color: var(--primary);
+            color: var(--primary);
+            font-weight: 500;
+        }
+        /* Collapsible JSON */
+        .raw-json-details {
+            margin: 10px 20px;
+            font-size: 0.8rem;
+        }
+        pre.json-dump {
+            background: #202124;
+            color: #8ab4f8;
+            padding: 12px;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <!-- Chat Panel -->
+        <div class="chat-panel">
+            <div class="header">
+                <h1>🛡️ Vibe Guard — Gemini Enterprise A2UI</h1>
+                <div class="session-info">
+                    <span id="session-display">Session: init</span>
+                    <button onclick="startNewSession()" style="margin-left:8px; border:none; background:#f1f3f4; border-radius:4px; padding:4px 8px; cursor:pointer;">Reset</button>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chat"></div>
+
+            <div class="input-bar">
+                <input type="text" id="userInput" placeholder="Ask Vibe Guard to scan a repository or explain a finding..." />
+                <button class="btn-send" onclick="sendChatMessage()">Send</button>
+            </div>
+
+            <details class="raw-json-details">
+                <summary>Debug: Inspect Raw A2UI v0.9 JSON</summary>
+                <pre class="json-dump" id="jsonDump">No UI messages received yet.</pre>
+            </details>
+        </div>
+
+        <!-- Canvas Panel -->
+        <div class="canvas-panel" id="canvasPanel">
+            <div class="canvas-header">
+                <h2 id="canvasTitle">📊 Canvas Side-Panel</h2>
+                <span id="canvasBadge" style="font-size:0.75rem; background:#e8f0fe; color:#1a73e8; padding:2px 8px; border-radius:10px;">A2UI v0.9</span>
+            </div>
+            <div class="canvas-content" id="canvasContent">
+                <div style="text-align: center; color: var(--text-secondary); margin-top: 40px;">
+                    Canvas panel will open when a scan or audit surface is rendered.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = 'vibeguard_' + Math.random().toString(36).substring(2, 9);
+        let dataModel = {
+            "/repo_url": "fixtures/nonconform/app_llm_injection",
+            "/branch": "main",
+            "/families": ["AUTH", "SECRETS", "LLM-GOV", "NET-ISO"]
+        };
+
+        document.getElementById('session-display').innerText = 'Session: ' + sessionId;
+
+        document.getElementById('userInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') sendChatMessage();
+        });
+
+        function startNewSession() {
+            sessionId = 'vibeguard_' + Math.random().toString(36).substring(2, 9);
+            document.getElementById('session-display').innerText = 'Session: ' + sessionId;
+            document.getElementById('chat').innerHTML = '';
+            document.getElementById('canvasContent').innerHTML = '<div style="text-align: center; color: var(--text-secondary); margin-top: 40px;">Canvas reset.</div>';
+            sendJsonRpcMessage("Hello Vibe Guard");
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+
+            appendMessage('user', text);
+            await sendJsonRpcMessage(text);
+        }
+
+        async function triggerAction(actionDef) {
+            console.log("Triggering action:", actionDef);
+            const eventName = actionDef.event || actionDef.name || "action";
+            const contextArray = actionDef.context || [];
+
+            const extractedContext = { event: eventName };
+            let userPrompt = "Action triggered: " + eventName;
+
+            if (Array.isArray(contextArray)) {
+                for (const item of contextArray) {
+                    const key = item.key;
+                    if (item.value) {
+                        if (item.value.literalString !== undefined) {
+                            extractedContext[key] = item.value.literalString;
+                        } else if (item.value.path !== undefined) {
+                            extractedContext[key] = dataModel[item.value.path];
+                        }
+                    }
+                    if (key === 'message' && extractedContext[key]) {
+                        userPrompt = extractedContext[key];
+                    }
+                }
+            }
+
+            appendMessage('user', userPrompt);
+
+            const payload = {
+                message: {
+                    text: userPrompt,
+                    parts: [
+                        {
+                            data: {
+                                action: {
+                                    name: eventName,
+                                    context: extractedContext
+                                }
+                            },
+                            metadata: { mimeType: "application/json+a2ui" }
+                        }
+                    ]
+                }
+            };
+
+            await sendJsonRpcPayload(payload);
+        }
+
+        async function sendJsonRpcMessage(text) {
+            return sendJsonRpcPayload({ message: { text: text } });
+        }
+
+        async function sendJsonRpcPayload(params) {
+            const loading = appendMessage('agent', 'Analyzing request...');
+            try {
+                const response = await fetch('/jsonrpc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        method: 'message/send',
+                        params: { ...params, session_id: sessionId },
+                        id: Date.now()
+                    })
+                });
+
+                const data = await response.json();
+                loading.remove();
+
+                if (data.error) {
+                    appendMessage('agent', '⚠️ Error: ' + data.error.message);
+                    return;
+                }
+
+                handleServerResult(data.result);
+            } catch (err) {
+                loading.remove();
+                appendMessage('agent', '⚠️ Connection failed: ' + err.message);
+            }
+        }
+
+        function appendMessage(role, text) {
+            const chat = document.getElementById('chat');
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            div.innerHTML = formatMarkdown(text);
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+            return div;
+        }
+
+        function formatMarkdown(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/`(.*?)`/g, '<code style="background:#f1f3f4; padding:2px 4px; border-radius:4px;">$1</code>')
+                .replace(/\n/g, '<br/>');
+        }
+
+        function handleServerResult(result) {
+            if (!result || !result.message || !result.message.parts) return;
+
+            const parts = result.message.parts;
+            let uiEnvelopes = [];
+
+            for (const part of parts) {
+                if (part.text) {
+                    appendMessage('agent', part.text);
+                }
+                if (part.data && part.metadata && part.metadata.mimeType === 'application/json+a2ui') {
+                    uiEnvelopes.push(part.data);
+                }
+            }
+
+            if (uiEnvelopes.length > 0) {
+                document.getElementById('jsonDump').innerText = JSON.stringify(uiEnvelopes, null, 2);
+                renderA2UIEnvelopes(uiEnvelopes);
+            }
+        }
+
+        function renderA2UIEnvelopes(envelopes) {
+            const canvasContent = document.getElementById('canvasContent');
+            canvasContent.innerHTML = '';
+
+            for (const env of envelopes) {
+                if (env.updateDataModel && env.updateDataModel.value) {
+                    Object.assign(dataModel, env.updateDataModel.value);
+                }
+
+                if (env.updateComponents && env.updateComponents.components) {
+                    const components = env.updateComponents.components;
+                    const rootComp = components.find(c => c.id === 'root');
+
+                    if (rootComp && rootComp.component === 'Canvas') {
+                        document.getElementById('canvasTitle').innerText = rootComp.cardTitle || 'Canvas Side-Panel';
+                        const children = rootComp.children || [];
+                        for (const childId of children) {
+                            const rendered = renderComponent(childId, components);
+                            if (rendered) canvasContent.appendChild(rendered);
+                        }
+                    } else {
+                        // Render top-level components
+                        for (const comp of components) {
+                            if (comp.id === 'main_card' || comp.id === 'metrics_card') {
+                                const rendered = renderComponent(comp.id, components);
+                                if (rendered) canvasContent.appendChild(rendered);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function renderComponent(compId, components) {
+            const comp = components.find(c => c.id === compId);
+            if (!comp) return null;
+
+            const type = comp.component;
+
+            if (type === 'MaterialCard') {
+                const card = document.createElement('div');
+                card.className = 'material-card';
+                if (comp.child) {
+                    const child = renderComponent(comp.child, components);
+                    if (child) card.appendChild(child);
+                }
+                return card;
+            }
+
+            if (type === 'MaterialColumn') {
+                const col = document.createElement('div');
+                col.className = 'material-column';
+                for (const childId of (comp.children || [])) {
+                    const child = renderComponent(childId, components);
+                    if (child) col.appendChild(child);
+                }
+                return col;
+            }
+
+            if (type === 'MaterialRow') {
+                const row = document.createElement('div');
+                row.className = 'material-row ' + (comp.distribution || '');
+                for (const childId of (comp.children || [])) {
+                    const child = renderComponent(childId, components);
+                    if (child) row.appendChild(child);
+                }
+                return row;
+            }
+
+            if (type === 'MaterialText') {
+                const p = document.createElement('div');
+                const usage = comp.usageHint || 'body';
+                p.className = 'material-text ' + usage;
+                p.innerText = comp.text || '';
+                return p;
+            }
+
+            if (type === 'MaterialDivider') {
+                const hr = document.createElement('hr');
+                hr.className = 'material-divider';
+                return hr;
+            }
+
+            if (type === 'MaterialInput') {
+                const group = document.createElement('div');
+                group.className = 'material-input-group';
+                const label = document.createElement('label');
+                label.innerText = comp.label || '';
+                const input = document.createElement('input');
+                input.type = comp.type || 'text';
+                input.placeholder = comp.placeholder || '';
+
+                const path = comp.value && comp.value.path ? comp.value.path : null;
+                if (path && dataModel[path] !== undefined) {
+                    input.value = dataModel[path];
+                }
+
+                input.oninput = (e) => {
+                    if (path) dataModel[path] = e.target.value;
+                };
+
+                group.appendChild(label);
+                group.appendChild(input);
+                return group;
+            }
+
+            if (type === 'ChoicePicker') {
+                const group = document.createElement('div');
+                group.className = 'choice-picker';
+                const label = document.createElement('label');
+                label.innerText = comp.label || '';
+                group.appendChild(label);
+
+                const container = document.createElement('div');
+                container.className = 'choice-options';
+
+                const path = comp.value && comp.value.path ? comp.value.path : null;
+                const selected = (path && Array.isArray(dataModel[path])) ? dataModel[path] : [];
+
+                for (const opt of (comp.options || [])) {
+                    const chip = document.createElement('div');
+                    const isSel = selected.includes(opt.value);
+                    chip.className = 'choice-chip ' + (isSel ? 'selected' : '');
+                    chip.innerText = opt.label || opt.value;
+
+                    chip.onclick = () => {
+                        const idx = selected.indexOf(opt.value);
+                        if (idx >= 0) {
+                            selected.splice(idx, 1);
+                            chip.classList.remove('selected');
+                        } else {
+                            selected.push(opt.value);
+                            chip.classList.add('selected');
+                        }
+                        if (path) dataModel[path] = selected;
+                    };
+                    container.appendChild(chip);
+                }
+                group.appendChild(container);
+                return group;
+            }
+
+            if (type === 'MaterialButton') {
+                const btn = document.createElement('button');
+                btn.className = 'material-button ' + (comp.variant || 'filled');
+
+                if (comp.child) {
+                    const child = renderComponent(comp.child, components);
+                    if (child) btn.appendChild(child);
+                } else {
+                    btn.innerText = comp.label || 'Action';
+                }
+
+                if (comp.action) {
+                    btn.onclick = () => triggerAction(comp.action);
+                }
+                return btn;
+            }
+
+            return null;
+        }
+
+        // On first load, greet the agent to display the scan form
+        window.addEventListener('load', () => {
+            sendJsonRpcMessage("Hello");
+        });
+    </script>
+</body>
+</html>
