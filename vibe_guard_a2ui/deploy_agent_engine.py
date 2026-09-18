@@ -139,7 +139,9 @@ def build_requirements() -> list[str]:
     return [
         "google-cloud-aiplatform[agent_engines,adk]>=2.1.3,<3",
         "google-adk>=2.9.1,<3",
-        "a2a-sdk>=1.1.4,<2",
+        # The Vertex A2aAgent template imports a2a.types.TransportProtocol, which
+        # a2a-sdk 1.x (protobuf types) dropped, so the A2A server side stays on 0.3.x.
+        "a2a-sdk[http-server]>=0.3.4,<1",
         f"cloudpickle=={cloudpickle_version}",
         "pydantic>=2.7.0,<3",
         "semgrep==1.79.0",
@@ -260,27 +262,28 @@ def main() -> None:
             http_options=types.HttpOptions(api_version="v1beta1"),
         )
 
-        skills = [
-            AgentSkill(
-                id=skill["id"],
-                name=skill["name"],
-                description=skill["description"],
-            )
-            for skill in card_data.get("skills", [])
-        ]
+        # The card declares tags, examples and A2UI modes per skill; pass them
+        # through rather than rebuilding a reduced skill definition.
+        skills = [AgentSkill(**skill) for skill in card_data.get("skills", [])]
 
         agent_card_obj = create_agent_card(
             agent_name=card_data.get("name", "VibeGuardAgent"),
             description=card_data.get("description", "Vibe Guard Security Auditor"),
             skills=skills,
+            default_input_modes=card_data.get("defaultInputModes"),
+            default_output_modes=card_data.get("defaultOutputModes"),
         )
-        # Advertise A2UI so Gemini Enterprise renders the DataParts as surfaces.
-        agent_card_obj.capabilities.CopyFrom(
-            AgentCapabilities(
-                streaming=False,
-                extensions=[AgentExtension(uri=A2UI_EXTENSION_URI, required=False)],
-            )
-        )
+        # Advertise A2UI so Gemini Enterprise renders the DataParts as surfaces,
+        # carrying over the catalog params declared on the card.
+        card_extensions = card_data.get("capabilities", {}).get("extensions", [])
+        extensions = [AgentExtension(**extension) for extension in card_extensions] or [
+            AgentExtension(uri=A2UI_EXTENSION_URI, required=False)
+        ]
+        capabilities = AgentCapabilities(streaming=False, extensions=extensions)
+        if hasattr(agent_card_obj.capabilities, "CopyFrom"):  # a2a-sdk 1.x protobuf
+            agent_card_obj.capabilities.CopyFrom(capabilities)
+        else:
+            agent_card_obj.capabilities = capabilities
 
         a2a_agent = A2aAgent(
             agent_card=agent_card_obj,
