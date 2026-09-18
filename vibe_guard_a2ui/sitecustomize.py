@@ -16,12 +16,14 @@ try:
     if hasattr(a2a_executor_mod, "A2aAgentExecutor"):
         a2a_executor_mod.A2aAgentExecutor.execute = agent_executor.a2ui_execute
         print(
-            "[A2UI-STARTUP] Successfully patched A2aAgentExecutor.execute on startup in sitecustomize.py",
+            "[A2UI-STARTUP] Successfully patched A2aAgentExecutor.execute on startup "
+            "in sitecustomize.py",
             file=sys.stderr,
         )
 except Exception as e:
     # Gracefully ignore if a2a dependencies are not active during local non-A2A tasks
     print(
-        f"[A2UI-STARTUP] Notice: A2aAgentExecutor not patched (likely not in adk api_server mode): {e}",
+        f"[A2UI-STARTUP] Notice: A2aAgentExecutor not patched "
+        f"(likely not in adk api_server mode): {e}",
         file=sys.stderr,
     )

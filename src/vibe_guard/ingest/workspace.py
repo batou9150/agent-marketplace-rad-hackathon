@@ -218,6 +218,26 @@ class EphemeralWorkspace:
         self._enforce_directory_limits(clone_dest)
         return clone_dest
 
+    def copy_directory(self, source_dir: Path | str) -> Path:
+        """Copy local directory into ephemeral workspace with limits enforcement (SPEC-ING-1)."""
+        if not self.path or not self.path.is_dir():
+            raise IngestionError("Ephemeral workspace is not initialized")
+
+        src = Path(source_dir).resolve()
+        if not src.is_dir():
+            raise IngestionError(f"Source directory not found: {source_dir}")
+
+        dest = self.path / "src"
+        try:
+            shutil.copytree(src, dest, symlinks=False)
+        except Exception as exc:
+            raise IngestionError(
+                f"Failed to copy directory into ephemeral workspace: {exc}"
+            ) from exc
+
+        self._enforce_directory_limits(dest)
+        return dest
+
     def _enforce_directory_limits(self, directory: Path) -> None:
         """Verify file count and total size within the directory."""
         file_count = 0

@@ -61,7 +61,8 @@ def test_agent_engine_dry_run() -> None:
         text=True,
     )
     assert res.returncode == 0
-    assert "Packaging validation successful" in res.stderr or "Packaging validation successful" in res.stdout
+    success_msg = "Packaging validation successful"
+    assert success_msg in res.stderr or success_msg in res.stdout
 
 
 def test_register_gemini_enterprise_payload_generation() -> None:

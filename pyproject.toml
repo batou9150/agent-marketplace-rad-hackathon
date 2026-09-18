@@ -12,6 +12,9 @@ dependencies = [
     "semgrep>=1.70.0",
 ]
 
+[project.scripts]
+vibe-guard = "vibe_guard.cli:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",

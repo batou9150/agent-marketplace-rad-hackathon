@@ -1,0 +1,32 @@
+{
+  "name": "VibeGuardAgent",
+  "description": "Autonomous security and compliance auditor for vibe-coded applications on Google Cloud Platform.",
+  "version": "1.0.0",
+  "url": "/jsonrpc",
+  "preferredTransport": "JSONRPC",
+  "capabilities": {
+    "streaming": false,
+    "extensions": [
+      {
+        "uri": "https://a2ui.org/a2a-extension/a2ui/v0.9",
+        "required": false
+      },
+      {
+        "uri": "https://a2ui.org/a2a-extension/a2ui/v0.8",
+        "required": false
+      }
+    ]
+  },
+  "skills": [
+    {
+      "id": "scan_repository",
+      "name": "Repository Security Audit",
+      "description": "Scan a vibe-coded repository or archive for vulnerabilities across AUTH, SECRETS, LLM-GOV, and NET-ISO."
+    },
+    {
+      "id": "explain_finding",
+      "name": "Remediation Explanation",
+      "description": "Provide bounded code context and GCP-native remediation instructions for detected non-conformities."
+    }
+  ]
+}
