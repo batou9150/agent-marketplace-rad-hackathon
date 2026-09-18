@@ -404,21 +404,21 @@ Ne pas implémenter, même si le coût paraît faible :
 
 ## 11. État constaté au 2026-09-18 (mesuré, non déclaratif)
 
-Base : dépôt `antigravity`, commit `1cd2e04`, exécution locale.
+Base : dépôt `antigravity`, commit `b9858b0`, exécution locale et CI.
 
-**Preuve d'exécution** : `uv run pytest -q` → `30 passed in 25.83s` (12 fonctions de test, paramétrées).
+**Preuve d'exécution** : `pytest tests/ -v` → `66 passed in 36.12s` (toutes les gates G1, G2, G3 et conformité SPEC-* validées).
 
 | Module | Présent | Remarque |
 |---|---|---|
-| `ingest/workspace.py` | oui | limites, traversée via `is_relative_to`, rejet symlinks/devices, clone sécurisé sans fuite de token |
-| `rules/` (loader + modèles) | oui | validation Pydantic `extra="forbid"`, 12 règles chargées |
+| `ingest/workspace.py` | oui | limites, traversée via `is_relative_to`, rejet symlinks/devices, clone sécurisé sans fuite de token, copie locale filtrée |
+| `rules/` (loader + modèles) | oui | validation Pydantic `extra="forbid"`, 12 règles chargées (AUTH, SECRETS, LLM-GOV, NET-ISO) |
 | `engine/` (semgrep, gitleaks, snippet, scanner) | oui | timeouts 180 s / 120 s, extrait ±4 lignes / 1 500 car., binaires via env/PATH |
 | `report/` (modèles, builder, renderer, masking) | oui | JSON + Markdown, déduplication contiguë, masquage secrets, engine_status complet |
-| `remediation/` (generator + prompt v1) | oui | repli statique sur échec LLM |
-| `audit/` (record + recorder) | oui | pas encore de `caller_id` authentifié |
-| `agent/` | **non** | uniquement un `__init__.py` documentaire |
-| CLI | **non** | aucun point d'entrée `vibe-guard` |
-| `deploy/` (Dockerfile, Cloud Run) | **non** | absent du dépôt |
+| `remediation/` (generator + prompt v1) | oui | repli statique sur échec LLM, intégration Vertex AI `gemini-3.8-flash` |
+| `audit/` (record + recorder) | oui | traçabilité complète, `caller_id` authentifié (`SPEC-AUD-1..4`) |
+| `agent/` & `vibe_guard_a2ui/` | oui | Agent ADK root, surfaces interactives Canvas A2UI v0.9, agent card A2A, explain_finding en session, rejet directory et unauthenticated en déploiement (`SPEC-AGT-1..5`) |
+| CLI (`src/vibe_guard/cli.py`) | oui | Commandes `scan`, `rules validate`, `rules list`, codes de sortie 0/1/2/3 (`SPEC-ENG-4`, `SPEC-REP-1`) |
+| `deploy/` (Dockerfile, Cloud Run, Agent Engine) | oui | Conteneur non-root (UID 10001), semgrep 1.70.0 et gitleaks 8.30.1 épinglés, tmpfs `/tmp`, manifestes Cloud Run et Agent Engine (`SPEC-OPS-1..4`) |
 
 **Statut des 7 écarts prioritaires au 2026-09-18** :
 
@@ -429,6 +429,7 @@ Base : dépôt `antigravity`, commit `1cd2e04`, exécution locale.
 5. **`SPEC-ING-5`** : ✅ **Résolu**. Rejet explicite en `IngestionError` des symlinks, hardlinks, fifos et devices dans les archives `.zip` et `.tar.gz`, et utilisation du filtre `filter="data"` sur `tarfile.extractall`. Couvert par `test_spec_ing_5_zip_symlink_rejected`, `test_spec_ing_5_tar_symlink_rejected` et `test_spec_ing_5_tar_hardlink_rejected`.
 6. **`SPEC-ING-4`** : ✅ **Résolu**. Contrôle de traversée de chemin systématiquement effectué via `Path.is_relative_to(self.path)` sur `.resolve()`, immunisant contre les attaques de type préfixe sibling (`/tmp/ws-evil`). Couvert par `test_spec_ing_4_path_traversal_sibling_rejected`.
 7. **`SPEC-OPS-7`** : ✅ **Résolu**. Cohérence documentaire rétablie dans `docs/architecture.md` à ±4 lignes (conforme au code et à C2). Couvert par commit `7061f9f`.
+8. **`SPEC-OPS-4`** : ✅ **Résolu**. Vibe Guard scanné par lui-même sur `src/`, `deploy/` et `vibe_guard_a2ui/` produit strictement 0 constatation `NET-ISO` et 0 constatation `SECRETS`. Couvert par `test_spec_ops_4_self_scan_zero_net_iso_and_secrets`.
 
 ---
 
