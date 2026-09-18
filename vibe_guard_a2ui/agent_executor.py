@@ -4,17 +4,15 @@ Bridges ADK agents and A2A JSON-RPC 2.0 communication, extracts action contexts
 from Gemini Enterprise, injects state into transcript, and packages A2UI payloads into DataParts.
 """
 
+import contextlib
 import json
 import logging
-import os
-import sys
 from typing import Any
 
 from google.adk import runners
 from google.adk.artifacts import in_memory_artifact_service
 from google.adk.memory import in_memory_memory_service
 from google.adk.sessions import in_memory_session_service
-from google.genai import types as genai_types
 
 from vibe_guard_a2ui.a2ui_presentation import A2UI_DELIMITER
 from vibe_guard_a2ui.agent import root_agent
@@ -36,7 +34,11 @@ def extract_action_context(parts: list[Any]) -> tuple[str | None, dict[str, Any]
                 data = part.get("data")
         elif hasattr(part, "root") and hasattr(part.root, "data"):
             metadata = getattr(part.root, "metadata", None)
-            mime = metadata.get("mimeType") if isinstance(metadata, dict) else getattr(metadata, "mimeType", None)
+            mime = (
+                metadata.get("mimeType")
+                if isinstance(metadata, dict)
+                else getattr(metadata, "mimeType", None)
+            )
             if mime == "application/json+a2ui":
                 data = part.root.data
 
@@ -44,10 +46,8 @@ def extract_action_context(parts: list[Any]) -> tuple[str | None, dict[str, Any]
             continue
 
         if isinstance(data, str):
-            try:
+            with contextlib.suppress(Exception):
                 data = json.loads(data)
-            except Exception:
-                pass
 
         if isinstance(data, dict):
             # Unwrap nested data wrapper if present
@@ -88,7 +88,14 @@ def split_a2ui_payload(text: str) -> tuple[str, list[dict[str, Any]]]:
         return text.strip(), []
 
     text_part, json_str = text.split(A2UI_DELIMITER, 1)
-    cleaned_json = json_str.strip().lstrip("```json").rstrip("```").strip()
+    cleaned_json = json_str.strip()
+    if cleaned_json.startswith("```json"):
+        cleaned_json = cleaned_json[7:]
+    elif cleaned_json.startswith("```"):
+        cleaned_json = cleaned_json[3:]
+    if cleaned_json.endswith("```"):
+        cleaned_json = cleaned_json[:-3]
+    cleaned_json = cleaned_json.strip()
 
     if not cleaned_json:
         return text_part.strip(), []
@@ -113,6 +120,7 @@ class AdkAgentToA2AExecutor:
     """Agent executor adapting Vibe Guard ADK agent for A2A and Gemini Enterprise."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        del args
         self._runner = kwargs.get("runner")
         if not self._runner:
             self._runner = runners.Runner(
@@ -126,5 +134,6 @@ class AdkAgentToA2AExecutor:
 
 async def a2ui_execute(self: Any, context: Any, event_queue: Any) -> None:
     """Monkey-patched execute method for A2aAgentExecutor in Cloud Run."""
+    _ = (self, context, event_queue)
     logger.info("Executing A2UI agent turn with context")
     # Implemented when running inside adk api_server
