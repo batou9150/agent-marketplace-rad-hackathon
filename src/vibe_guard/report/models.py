@@ -17,6 +17,7 @@ class ReportMetadata(BaseModel):
     pack_version: str
     target: str
     llm_remediation_enabled: bool = False
+    prompt_version: str | None = None
 
 
 class ReportSummary(BaseModel):

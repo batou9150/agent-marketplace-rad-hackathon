@@ -86,9 +86,11 @@ def run_scan(args: argparse.Namespace) -> int:
 
     # 3. Contextual remediation via LLM if enabled (C2, SPEC-REM-4 fallback)
     contextual_advices = {}
+    prompt_version = None
     if not no_llm:
         try:
             generator = RemediationGenerator(enabled=True)
+            prompt_version = generator.prompt_version
             contextual_advices = generator.enrich_findings(findings, rule_pack=pack)
         except Exception:
             contextual_advices = {}
@@ -103,6 +105,7 @@ def run_scan(args: argparse.Namespace) -> int:
         pack_version=pack.version,
         target=target_display,
         llm_remediation_enabled=not no_llm,
+        prompt_version=prompt_version,
         contextual_advices=contextual_advices,
     )
 

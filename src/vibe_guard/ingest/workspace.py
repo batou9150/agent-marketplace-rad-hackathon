@@ -105,7 +105,8 @@ class EphemeralWorkspace:
                         raise IngestionError(
                             f"Disallowed archive entry (symbolic link): {info.filename}"
                         )
-                    if mode != 0 and not (info.is_dir() or stat.S_ISREG(mode)):
+                    file_type = mode & 0o170000
+                    if file_type not in (0, stat.S_IFREG, stat.S_IFDIR) and not info.is_dir():
                         raise IngestionError(
                             f"Disallowed archive entry (unsupported type): {info.filename}"
                         )
@@ -193,13 +194,14 @@ class EphemeralWorkspace:
             askpass_script.chmod(0o700)
             env["GIT_ASKPASS"] = str(askpass_script)
 
+        timeout = int(os.environ.get("VIBE_GUARD_GIT_CLONE_TIMEOUT", "120"))
         try:
             result = subprocess.run(
                 cmd,
                 env=env,
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=timeout,
                 check=False,
             )
             if result.returncode != 0:
@@ -207,7 +209,7 @@ class EphemeralWorkspace:
                 err_msg = result.stderr.replace(token, "***") if token else result.stderr
                 raise IngestionError(f"Git clone failed: {err_msg.strip()}")
         except subprocess.TimeoutExpired as exc:
-            raise IngestionError("Git clone timed out after 120s") from exc
+            raise IngestionError(f"Git clone timed out after {timeout}s") from exc
         except Exception as exc:
             raise IngestionError(f"Error during git clone: {exc}") from exc
         finally:

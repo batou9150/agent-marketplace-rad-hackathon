@@ -96,6 +96,7 @@ def build_report(
     pack_version: str,
     target: str,
     llm_remediation_enabled: bool = False,
+    prompt_version: str | None = None,
     contextual_advices: dict[str, str] | None = None,
 ) -> Report:
     """Construct a complete, sorted, and validated Report."""
@@ -218,6 +219,7 @@ def build_report(
         pack_version=pack_version,
         target=target,
         llm_remediation_enabled=llm_remediation_enabled,
+        prompt_version=(prompt_version or "v1") if llm_remediation_enabled else None,
     )
 
     summary = ReportSummary(

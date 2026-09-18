@@ -63,6 +63,8 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
             "--metrics=off",
             "--disable-version-check",
             "--no-git-ignore",
+            "--exclude",
+            ".git",
             str(scan_dir),
         ]
 
@@ -70,12 +72,13 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
         env["HOME"] = str(config_path.parent)
         env["SEMGREP_SETTINGS_FILE"] = str(config_path.parent / ".semgrep_settings.yml")
 
+        timeout = int(os.environ.get("VIBE_GUARD_SEMGREP_TIMEOUT", "180"))
         result = subprocess.run(
             cmd,
             env=env,
             capture_output=True,
             text=True,
-            timeout=180,
+            timeout=timeout,
             check=False,
         )
 
@@ -100,6 +103,10 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
             except ValueError:
                 rel_path = file_abs_path.name
 
+            # SPEC-ING-8: Exclude findings from .git
+            if rel_path.startswith(".git/") or rel_path == ".git":
+                continue
+
             line_num = item.get("start", {}).get("line", 1)
             snippet = extract_bounded_snippet(file_abs_path, line_num)
 
@@ -122,7 +129,8 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
         return findings
 
     except subprocess.TimeoutExpired:
-        return [Finding.create_tool_error("semgrep", "Semgrep scan timed out after 180 seconds")]
+        msg = f"Semgrep scan timed out after {timeout} seconds"
+        return [Finding.create_tool_error("semgrep", msg)]
     except json.JSONDecodeError as exc:
         return [Finding.create_tool_error("semgrep", f"Failed to parse Semgrep JSON output: {exc}")]
     except Exception as exc:

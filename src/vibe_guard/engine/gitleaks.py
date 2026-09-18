@@ -62,11 +62,12 @@ def run_gitleaks(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
             "--no-banner",
         ]
 
+        timeout = int(os.environ.get("VIBE_GUARD_GITLEAKS_TIMEOUT", "120"))
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=timeout,
             check=False,
         )
 
@@ -135,7 +136,8 @@ def run_gitleaks(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
         return findings
 
     except subprocess.TimeoutExpired:
-        return [Finding.create_tool_error("gitleaks", "Gitleaks detection timed out after 120s")]
+        msg = f"Gitleaks detection timed out after {timeout}s"
+        return [Finding.create_tool_error("gitleaks", msg)]
     except json.JSONDecodeError as exc:
         return [Finding.create_tool_error("gitleaks", f"Invalid JSON report from Gitleaks: {exc}")]
     except Exception as exc:

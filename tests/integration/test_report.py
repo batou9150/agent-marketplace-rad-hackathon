@@ -330,3 +330,38 @@ def test_remediation_generator_default_model(monkeypatch) -> None:
     monkeypatch.setenv("VG_LLM_MODEL", "gemini-3.1-pro-preview")
     gen_custom = RemediationGenerator(enabled=False)
     assert gen_custom.model == "gemini-3.1-pro-preview"
+
+
+def test_spec_rem_5_prompt_version_exposed_when_llm_enabled() -> None:
+    """SPEC-REM-5: report.metadata.prompt_version present when llm_remediation_enabled is True."""
+    gen = RemediationGenerator(enabled=False)
+    assert gen.prompt_version == "v1"
+
+    # With LLM enabled: prompt_version present in metadata and serialized JSON
+    report_llm = build_report(
+        findings=[],
+        scan_id="test-rem-5",
+        timestamp="2026-09-18T10:00:00Z",
+        duration_seconds=0.1,
+        caller_id="test",
+        pack_version="1.0.0",
+        target="test-target",
+        llm_remediation_enabled=True,
+        prompt_version=gen.prompt_version,
+    )
+    assert report_llm.metadata.prompt_version == "v1"
+    json_llm = report_llm.to_json()
+    assert '"prompt_version": "v1"' in json_llm
+
+    # With LLM disabled: prompt_version is None
+    report_no_llm = build_report(
+        findings=[],
+        scan_id="test-rem-5-none",
+        timestamp="2026-09-18T10:00:00Z",
+        duration_seconds=0.1,
+        caller_id="test",
+        pack_version="1.0.0",
+        target="test-target",
+        llm_remediation_enabled=False,
+    )
+    assert report_no_llm.metadata.prompt_version is None

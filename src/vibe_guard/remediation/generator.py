@@ -30,7 +30,9 @@ class RemediationGenerator:
         self.model = model or os.getenv("VG_LLM_MODEL", "gemini-3.8-flash")
         self.max_snippet_chars = max_snippet_chars
         self.enabled = enabled
-        self.prompt_template = self._load_prompt_template(prompt_file or DEFAULT_PROMPT_FILE)
+        prompt_path = Path(prompt_file or DEFAULT_PROMPT_FILE)
+        self.prompt_version = prompt_path.stem.replace("remediation_", "")
+        self.prompt_template = self._load_prompt_template(prompt_path)
 
     def _load_prompt_template(self, prompt_path: Path | str) -> str:
         path = Path(prompt_path)
