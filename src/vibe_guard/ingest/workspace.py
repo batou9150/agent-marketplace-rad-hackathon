@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import stat
 import subprocess
 import tarfile
 import tempfile
@@ -93,10 +94,21 @@ class EphemeralWorkspace:
                     if info.file_size > self.limits.max_file_bytes:
                         raise IngestionError(f"Single file size exceeded limit for {info.filename}")
 
-                    # Zip-Slip check
+                    # SPEC-ING-4: Zip-Slip path traversal check using Path.is_relative_to
                     target_file = (self.path / info.filename).resolve()
-                    if not str(target_file).startswith(str(self.path)):
+                    if not target_file.is_relative_to(self.path):
                         raise IngestionError(f"Path traversal detected in archive: {info.filename}")
+
+                    # SPEC-ING-5: Reject symlinks and non-regular files
+                    mode = info.external_attr >> 16
+                    if stat.S_ISLNK(mode):
+                        raise IngestionError(
+                            f"Disallowed archive entry (symbolic link): {info.filename}"
+                        )
+                    if mode != 0 and not (info.is_dir() or stat.S_ISREG(mode)):
+                        raise IngestionError(
+                            f"Disallowed archive entry (unsupported type): {info.filename}"
+                        )
 
                 zf.extractall(self.path)
         except IngestionError:
@@ -115,13 +127,29 @@ class EphemeralWorkspace:
                     if total_bytes > self.limits.max_total_bytes:
                         raise IngestionError("Archive maximum total bytes exceeded")
 
+                    # SPEC-ING-4: Path traversal check using Path.is_relative_to
                     target_file = (self.path / member.name).resolve()
-                    if not str(target_file).startswith(str(self.path)):
+                    if not target_file.is_relative_to(self.path):
                         raise IngestionError(
                             f"Path traversal detected in tar archive: {member.name}"
                         )
 
-                tf.extractall(self.path)
+                    # SPEC-ING-5: Reject links, devices, and fifos
+                    if member.issym() or member.islnk():
+                        raise IngestionError(f"Disallowed archive entry (link): {member.name}")
+                    if member.ischr() or member.isblk() or member.isfifo():
+                        raise IngestionError(
+                            f"Disallowed archive entry (device/fifo): {member.name}"
+                        )
+                    if not (member.isfile() or member.isdir()):
+                        raise IngestionError(
+                            f"Disallowed archive entry (unsupported type): {member.name}"
+                        )
+
+                if hasattr(tarfile, "data_filter"):
+                    tf.extractall(self.path, filter="data")
+                else:
+                    tf.extractall(self.path)
         except IngestionError:
             raise
         except Exception as exc:
@@ -137,19 +165,38 @@ class EphemeralWorkspace:
         if not self.path or not self.path.is_dir():
             raise IngestionError("Ephemeral workspace is not initialized")
 
-        # Prepare sanitized URL if token provided
-        target_url = git_url
-        if token and git_url.startswith("https://"):
-            target_url = git_url.replace("https://", f"https://x-access-token:{token}@")
-
-        cmd = ["git", "clone", "--depth", "1"]
+        # SPEC-ING-6 & SPEC-ING-7: Hardened non-interactive, non-recursive Git clone
+        git_bin = os.environ.get("VIBE_GUARD_GIT_BIN") or shutil.which("git") or "git"
+        cmd = [
+            git_bin,
+            "-c",
+            "core.hooksPath=",
+            "-c",
+            "protocol.allow=never",
+            "-c",
+            "protocol.https.allow=always",
+            "clone",
+            "--depth",
+            "1",
+            "--no-recurse-submodules",
+        ]
         if branch:
             cmd.extend(["--branch", branch])
-        cmd.extend([target_url, str(self.path / "repo")])
+        cmd.extend([git_url, str(self.path / "repo")])
+
+        env = dict(os.environ)
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        askpass_script: Path | None = None
+        if token:
+            askpass_script = self.path / ".askpass.sh"
+            askpass_script.write_text(f'#!/bin/sh\necho "{token}"\n')
+            askpass_script.chmod(0o700)
+            env["GIT_ASKPASS"] = str(askpass_script)
 
         try:
             result = subprocess.run(
                 cmd,
+                env=env,
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -163,6 +210,9 @@ class EphemeralWorkspace:
             raise IngestionError("Git clone timed out after 120s") from exc
         except Exception as exc:
             raise IngestionError(f"Error during git clone: {exc}") from exc
+        finally:
+            if askpass_script:
+                askpass_script.unlink(missing_ok=True)
 
         clone_dest = self.path / "repo"
         self._enforce_directory_limits(clone_dest)
