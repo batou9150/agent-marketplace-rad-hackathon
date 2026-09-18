@@ -30,6 +30,13 @@ engine:
     severity: WARNING
     patterns:
       - pattern-either:
-          - pattern: '"run.googleapis.com/ingress" = "all"'
-          - pattern: 'ingress = "all"'
-          - pattern: 'ingress = "INGRESS_TRAFFIC_ALL"'
+          - pattern: |
+              annotations = {
+                ...,
+                "run.googleapis.com/ingress" = "all",
+                ...
+              }
+          - pattern: |
+              ingress = "all"
+          - pattern: |
+              ingress = "INGRESS_TRAFFIC_ALL"

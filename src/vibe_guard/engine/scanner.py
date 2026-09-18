@@ -1,6 +1,7 @@
 """Orchestrator combining Semgrep and Gitleaks scanning engines."""
 
 from pathlib import Path
+
 from vibe_guard.engine.gitleaks import run_gitleaks
 from vibe_guard.engine.models import Finding
 from vibe_guard.engine.semgrep import run_semgrep

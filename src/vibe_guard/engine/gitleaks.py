@@ -1,10 +1,10 @@
 """Gitleaks secret scanner executor and result normalizer for Vibe Guard."""
 
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 from typing import Any
 
 from vibe_guard.engine.models import Finding
@@ -85,7 +85,15 @@ def run_gitleaks(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
         findings: list[Finding] = []
         for item in output_data:
             file_raw = item.get("File", "")
-            file_abs = (scan_dir / file_raw).resolve() if not Path(file_raw).is_absolute() else Path(file_raw).resolve()
+            raw_path = Path(file_raw)
+            if raw_path.is_absolute():
+                file_abs = raw_path.resolve()
+            elif (scan_dir / raw_path).is_file():
+                file_abs = (scan_dir / raw_path).resolve()
+            elif raw_path.resolve().is_file():
+                file_abs = raw_path.resolve()
+            else:
+                file_abs = (scan_dir / raw_path.name).resolve()
 
             try:
                 rel_path = file_abs.relative_to(scan_dir.resolve()).as_posix()
@@ -110,9 +118,15 @@ def run_gitleaks(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
                 line_number=line_num,
                 snippet=snippet,
                 is_tool_error=False,
-                remediation_summary=default_secret_rule.remediation.summary if default_secret_rule else None,
-                remediation_gcp_service=default_secret_rule.remediation.gcp_service if default_secret_rule else None,
-                remediation_steps=default_secret_rule.remediation.steps if default_secret_rule else [],
+                remediation_summary=default_secret_rule.remediation.summary
+                if default_secret_rule
+                else None,
+                remediation_gcp_service=default_secret_rule.remediation.gcp_service
+                if default_secret_rule
+                else None,
+                remediation_steps=default_secret_rule.remediation.steps
+                if default_secret_rule
+                else [],
             )
             findings.append(finding)
 
@@ -123,6 +137,8 @@ def run_gitleaks(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
     except json.JSONDecodeError as exc:
         return [Finding.create_tool_error("gitleaks", f"Invalid JSON report from Gitleaks: {exc}")]
     except Exception as exc:
-        return [Finding.create_tool_error("gitleaks", f"Unexpected error executing Gitleaks: {exc}")]
+        return [
+            Finding.create_tool_error("gitleaks", f"Unexpected error executing Gitleaks: {exc}")
+        ]
     finally:
         report_path.unlink(missing_ok=True)

@@ -1,6 +1,7 @@
 """Integration test running ScanEngine on fixtures."""
 
 from pathlib import Path
+
 import pytest
 import yaml
 

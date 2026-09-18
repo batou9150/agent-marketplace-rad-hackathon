@@ -1,11 +1,13 @@
 """Semgrep OSS executor and result normalizer for Vibe Guard."""
 
 import json
-from pathlib import Path
+import os
 import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 from typing import Any
+
 import yaml
 
 from vibe_guard.engine.models import Finding
@@ -61,8 +63,13 @@ def run_semgrep(scan_dir: Path, rule_pack: RulePack) -> list[Finding]:
             str(scan_dir),
         ]
 
+        env = dict(os.environ)
+        env["HOME"] = str(config_path.parent)
+        env["SEMGREP_SETTINGS_FILE"] = str(config_path.parent / ".semgrep_settings.yml")
+
         result = subprocess.run(
             cmd,
+            env=env,
             capture_output=True,
             text=True,
             timeout=180,
