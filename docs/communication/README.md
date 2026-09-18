@@ -34,6 +34,7 @@ graph TD
 
 | Fichier | Cible / Canal | Objectif Principal |
 |---|---|---|
+| [**`note-comex-sfeir-vibe-guard.md`**](note-comex-sfeir-vibe-guard.md) | COMEX SFEIR (Direction Générale, Alliances) | Note stratégique d'arbitrage : modèle économique, projection financière à 12 mois (906 k€ CA), synergies Google Cloud et décisions soumises au vote. |
 | [**`business-value-pitch-roi.md`**](business-value-pitch-roi.md) | CISO, CTO, Head of Platform, DSI | Démontrer le coût de l'inaction (Shadow AI), la réduction du cycle de mise en production de 85 %, et un modèle de ROI à 3 ans (+289 %). |
 | [**`marketplace-listing-copy.md`**](marketplace-listing-copy.md) | Google Cloud Marketplace / Acheteurs GCP | Fiche produit officielle pour le Google Cloud Producer Portal : description courte/longue, compatibilité technique, modèle hybride (1,99 $ / scan + CPPO). |
 | [**`sfeir-assessment-one-pager.md`**](sfeir-assessment-one-pager.md) | Account Managers, Tech Leads & Consultants SFEIR | Support de vente 1-page pour déclencher des missions d'audit d'industrialisation (2-3 jours) chez les clients grands comptes et closer des offres privées CPPO. |
